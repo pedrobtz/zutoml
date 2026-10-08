@@ -13,6 +13,7 @@ before any R value is built.
 ``` r
 toml_parse(
   x,
+  select = NULL,
   version = c("1.1.0", "1.0.0"),
   simplify = c("preserve", "none"),
   data_frame = FALSE,
@@ -32,6 +33,18 @@ toml_parse(
 - x:
 
   A TOML document: a single string, or a raw vector of UTF-8 bytes.
+
+- select:
+
+  `NULL` (the default) returns the whole document. A path returns only
+  the value there: a string in TOML key syntax, as the positions table
+  writes it (`"tool.poetry"`; `'"a.b".c'` for a key with a dot;
+  `"products[2].name"` into arrays, counting from 1), or a vector of two
+  or more keys taken as they are (`c("tool", "poetry")`). The whole
+  document is still read and checked, since TOML lets a table be added
+  to anywhere in it, but only the selected part becomes R values. A path
+  the document does not have raises `zutoml_missing_key`, with `path`
+  and `found`, the part of the path that does exist.
 
 - version:
 
@@ -103,7 +116,8 @@ toml_parse(
 
 ## Value
 
-A named list, one element per top-level key.
+A named list, one element per top-level key; with `select`, the value at
+that path.
 
 ## TOML to R
 
@@ -177,6 +191,17 @@ toml_parse(doc, data_frame = TRUE)$products
 #>     name       sku color
 #> 1 Hammer 738594937  <NA>
 #> 2   Nail 284758393  gray
+
+# Only part of it:
+toml_parse(doc, select = "owner")
+#> $name
+#> [1] "Tom Preston-Werner"
+#> 
+#> $dob
+#> [1] "1979-05-27 15:32:00 UTC"
+#> 
+toml_parse(doc, select = "products[2].color")
+#> [1] "gray"
 
 # Where each value is, for messages about the document:
 pos <- attr(toml_parse(doc, positions = TRUE), "toml_positions")

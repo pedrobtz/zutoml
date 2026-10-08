@@ -44,6 +44,12 @@ class below inherits from `zutoml_error`.
 
   A file or connection could not be read or written.
 
+- `zutoml_missing_key`:
+
+  [`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)'s
+  `select` names a path the document does not have. Carries `path`, the
+  path asked for, and `found`, the part of it that exists.
+
 ## Examples
 
 ``` r

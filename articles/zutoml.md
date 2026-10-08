@@ -46,6 +46,17 @@ one-element array, such as `requires` above, is marked with
 [`I()`](https://rdrr.io/r/base/AsIs.html) so that writing it back gives
 an array again.
 
+To read only part of a document, give a path. The whole file is still
+checked, but only that part becomes R values:
+
+``` r
+
+toml_parse(pyproject, select = "project.optional-dependencies.cli")
+#> [1] "rich"  "click"
+toml_parse(pyproject, select = "project.authors[2].email")
+#> [1] "tzu-ping@example.com"
+```
+
 An array of tables, like `authors`, is a list of named lists, or a data
 frame on request:
 

@@ -26,3 +26,8 @@ for a tour.
 Authors:
 
 - Pedro Baltazar <pedrobtz@gmail.com> \[copyright holder\]
+
+Other contributors:
+
+- TOML authors (the 'toml-test' suite in tests/testthat/toml-test)
+  \[copyright holder\]

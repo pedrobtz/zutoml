@@ -57,6 +57,7 @@ built.</p>
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">toml_parse</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
+<span>  select <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  version <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1.1.0"</span>, <span class="st">"1.0.0"</span><span class="op">)</span>,</span>
 <span>  simplify <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"preserve"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  data_frame <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -78,6 +79,18 @@ built.</p>
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
 <dd><p>A TOML document: a single string, or a raw vector of UTF-8
 bytes.</p></dd>
+
+
+<dt id="arg-select">select<a class="anchor" aria-label="anchor" href="#arg-select"></a></dt>
+<dd><p><code>NULL</code> (the default) returns the whole document. A path
+returns only the value there: a string in TOML key syntax, as the
+positions table writes it (<code>"tool.poetry"</code>; <code>'"a.b".c'</code> for a key with a
+dot; <code>"products[2].name"</code> into arrays, counting from 1), or a vector of
+two or more keys taken as they are (<code>c("tool", "poetry")</code>). The whole
+document is still read and checked, since TOML lets a table be added to
+anywhere in it, but only the selected part becomes R values. A path the
+document does not have raises <code>zutoml_missing_key</code>, with <code>path</code> and
+<code>found</code>, the part of the path that does exist.</p></dd>
 
 
 <dt id="arg-version">version<a class="anchor" aria-label="anchor" href="#arg-version"></a></dt>
@@ -150,7 +163,8 @@ at most 1023.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A named list, one element per top-level key.</p>
+    <p>A named list, one element per top-level key; with <code>select</code>, the
+value at that path.</p>
     </div>
     <div class="section level2">
     <h2 id="toml-to-r">TOML to R<a class="anchor" aria-label="anchor" href="#toml-to-r"></a></h2>
@@ -205,6 +219,17 @@ integer beyond 2^53 with <code>big_integers = "error"</code>.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     name       sku color</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 Hammer 738594937  &lt;NA&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2   Nail 284758393  gray</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Only part of it:</span></span></span>
+<span class="r-in"><span><span class="fu">toml_parse</span><span class="op">(</span><span class="va">doc</span>, select <span class="op">=</span> <span class="st">"owner"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $name</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Tom Preston-Werner"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $dob</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "1979-05-27 15:32:00 UTC"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="fu">toml_parse</span><span class="op">(</span><span class="va">doc</span>, select <span class="op">=</span> <span class="st">"products[2].color"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "gray"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Where each value is, for messages about the document:</span></span></span>
 <span class="r-in"><span><span class="va">pos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="fu">toml_parse</span><span class="op">(</span><span class="va">doc</span>, positions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="st">"toml_positions"</span><span class="op">)</span></span></span>

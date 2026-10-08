@@ -55,9 +55,18 @@ typedef enum {
     ZTM_ERR_INVALID_FLOAT,         /* not TOML's float shape */
     ZTM_ERR_INVALID_DATETIME,      /* not TOML's date-time shape, or no such
                                       date or time */
+    /* the grammar and the table model (Stage 3) */
+    ZTM_ERR_UNEXPECTED_TOKEN,      /* a token the grammar does not allow here */
+    ZTM_ERR_DUPLICATE_KEY,         /* a key defined twice, or a dotted key
+                                      through a key that holds a value */
+    ZTM_ERR_TABLE_REDEFINED,       /* a table or array of tables defined
+                                      twice, or extended where TOML forbids */
+    ZTM_ERR_INLINE_TABLE_EXTENDED, /* an inline table added to after it closed */
     /* limits (design section 12) */
     ZTM_ERR_SIZE_LIMIT,
     ZTM_ERR_STRING_LIMIT,
+    ZTM_ERR_DEPTH_LIMIT,
+    ZTM_ERR_ITEM_LIMIT,
     ZTM_STATUS_COUNT
 } ztm_status;
 
@@ -74,6 +83,8 @@ typedef struct {
     uint64_t max_size;      /* bytes of input */
     uint64_t max_string;    /* one string's or key's decoded bytes */
     ztm_version version;
+    uint32_t max_depth;     /* nested tables and arrays, counting both */
+    uint64_t max_items;     /* keys plus array elements */
 } ztm_opts;
 
 /* Why the check failed, and where. line and column are 1-based, the column
@@ -160,18 +171,22 @@ typedef enum {
 } ztm_int_class;
 
 typedef struct {
-    ztm_tok_type type;
-    int64_t i;             /* ZTM_TOK_INTEGER */
-    ztm_int_class int_class;
-    double d;              /* ZTM_TOK_FLOAT */
-    int overflow;          /* a float beyond double's range (d is +-Inf):
+    uint8_t type;          /* a ztm_tok_type */
+    uint8_t int_class;     /* integers: a ztm_int_class */
+    uint8_t overflow;      /* floats: beyond double's range (d is +-Inf),
                               valid TOML R cannot hold (design section 6.4) */
-    int b;                 /* ZTM_TOK_BOOL */
-    zuf_datetime dt;       /* the four date-time types; local time uses the
+    uint8_t has_nul;       /* strings: holds U+0000 (design section 6.4) */
+    union {
+        int64_t i;         /* ZTM_TOK_INTEGER */
+        double d;          /* ZTM_TOK_FLOAT */
+        int b;             /* ZTM_TOK_BOOL */
+        zuf_datetime dt;   /* the four date-time types; local time uses the
                               time fields only */
-    const char *s;         /* strings: decoded UTF-8, not NUL-terminated */
-    size_t n;
-    int has_nul;           /* the string holds U+0000 (design section 6.4) */
+        struct {
+            const char *s; /* decoded UTF-8, not NUL-terminated */
+            size_t n;
+        } str;
+    } u;
 } ztm_value;
 
 /* The value of a scalar or string token. Faults are positioned at the
@@ -179,7 +194,7 @@ typedef struct {
 ztm_status ztm_value_of(ztm_lexer *lx, const ztm_token *tok, ztm_value *v, ztm_fault *fault);
 
 /* A key token's text: a bare key as written, a quoted key decoded. */
-void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, int *has_nul);
+void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, uint8_t *has_nul);
 
 /* Tokenises the whole document, tracking key and value mode by the bracket
  * structure alone (no grammar checks), and parses every value token (Stage
@@ -189,5 +204,54 @@ void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, 
  * (zeroed for punctuation and keys). */
 ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *opt,
                         ztm_token **out, ztm_value **vals, size_t *n, ztm_fault *fault);
+
+/* ---- the document (Stage 3) ----------------------------------------------
+ *
+ * The check phase's output: a tree of nodes in definition order, which the
+ * build phase walks (design section 4). Children are a linked list, so a
+ * table's keys keep the order the document gave them. Node 0 is the root
+ * table. Indices, not pointers: the node array grows by copying. */
+
+#define ZTM_NONE UINT32_MAX
+
+typedef enum {
+    ZTM_NODE_TABLE,        /* a table or inline table: keyed children */
+    ZTM_NODE_AOT,          /* an array of tables: its tables, unkeyed */
+    ZTM_NODE_ARRAY,        /* an array value: its elements, unkeyed */
+    ZTM_NODE_VALUE         /* a scalar or string, in `value` */
+} ztm_node_kind;
+
+/* How a table came to be, which is what TOML's redefinition rules are
+ * about (design section 9; the spec's "Table" section). */
+typedef enum {
+    ZTM_TABLE_IMPLICIT,    /* created on the way to a deeper [header] */
+    ZTM_TABLE_EXPLICIT,    /* defined by its own [header], or [[header]] */
+    ZTM_TABLE_DOTTED,      /* created by a dotted key */
+    ZTM_TABLE_INLINE       /* an inline table, sealed once closed */
+} ztm_table_state;
+
+typedef struct {
+    uint8_t kind;          /* ztm_node_kind */
+    uint8_t state;         /* tables: ztm_table_state */
+    uint8_t key_has_nul;   /* the key holds U+0000 (design section 6.4) */
+    uint32_t depth;        /* the root is 0 */
+    uint32_t parent, first, last, next;
+    uint32_t nchildren;
+    const char *key;       /* NULL for array elements and the root */
+    size_t keylen;
+    size_t line, column, offset;   /* where it was defined */
+    ztm_value value;       /* ZTM_NODE_VALUE */
+} ztm_node;
+
+typedef struct {
+    ztm_node *nodes;
+    uint32_t n;
+} ztm_doc;
+
+/* The whole check phase: lexer, grammar, table model, values and limits.
+ * Returns ZTM_OK and fills doc, or fills fault. Never raises; interrupts
+ * go through ztm_interrupt_check(). */
+ztm_status ztm_parse(const unsigned char *buf, size_t len, const ztm_opts *opt,
+                     ztm_doc *doc, ztm_fault *fault);
 
 #endif

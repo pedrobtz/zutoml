@@ -31,7 +31,7 @@ for f in src/*.c; do
   $CC $FLAGS $extra $INC "$f" || fail=1
 done
 # The R-free build of the check phase, as the fuzzers compile it.
-for f in src/ztm_lex.c src/ztm_status.c src/ztm_value.c fuzz/*.c; do
+for f in src/ztm_lex.c src/ztm_parse.c src/ztm_status.c src/ztm_value.c fuzz/*.c; do
   $CC $FLAGS -DZTM_STANDALONE -isystem "$ZINC" -Isrc "$f" || fail=1
 done
 [ $fail = 0 ] || { echo "FAIL: warnings in project C code" >&2; exit 1; }

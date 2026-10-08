@@ -34,3 +34,20 @@ value_of <- function(v, ...) {
 
 # The kind of the fault `a = <v>` raises.
 value_error <- function(v, ...) lex_error(paste("a =", v), ...)$kind
+
+# The kind of the fault toml_validate() reports for a document, or NA when
+# it is valid.
+validate_kind <- function(x, ...) {
+  tryCatch(
+    {
+      toml_validate(x, ..., error = TRUE)
+      NA_character_
+    },
+    zutoml_error = function(e) e$kind
+  )
+}
+
+# The condition toml_validate() raises for a document.
+validate_error <- function(x, ...) {
+  tryCatch(toml_validate(x, ..., error = TRUE), zutoml_error = identity)
+}

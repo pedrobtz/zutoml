@@ -76,7 +76,8 @@ static ztm_status parse_integer(const unsigned char *s, size_t n, const ztm_toke
         int (*digit)(unsigned char) = s[1] == 'x' ? is_hex : s[1] == 'o' ? is_oct : is_bin;
         base = s[1] == 'x' ? 16 : s[1] == 'o' ? 8 : 2;
         k = digits_us(s + 2, n - 2, digit, buf);
-        if (!k) /* GUARD: integer_prefixed_shape */
+        /* Defence in depth: an empty digit string is refused by zufast too. */
+        if (!k)
             return fail_tok(tok, fault, ZTM_ERR_INVALID_INTEGER);
     } else {
         size_t i = 0;
@@ -86,19 +87,19 @@ static ztm_status parse_integer(const unsigned char *s, size_t n, const ztm_toke
             i = 1;
         }
         size_t d = digits_us(s + i, n - i, is_dec, buf + k);
-        if (!d) /* GUARD: integer_shape */
+        if (!d)   /* also refused by zufast; defence in depth */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_INTEGER);
         if (d > 1 && buf[k] == '0') /* GUARD: integer_leading_zero */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_INTEGER);
         k += d;
     }
     zuf_num_options opt = {0u, base, 0};
-    zuf_result r = zuf_parse_i64_opt(buf, buf + k, &v->i, &opt);
+    zuf_result r = zuf_parse_i64_opt(buf, buf + k, &v->u.i, &opt);
     if (r.status == ZUF_ERR_RANGE) /* GUARD: integer_range */
         return fail_tok(tok, fault, ZTM_ERR_INTEGER_RANGE);
     if (r.status != ZUF_OK || r.ptr != buf + k)
         return fail_tok(tok, fault, ZTM_ERR_INVALID_INTEGER);
-    v->int_class = int_class_of(v->i);
+    v->int_class = (uint8_t) int_class_of(v->u.i);
     return ZTM_OK;
 }
 
@@ -115,9 +116,9 @@ static ztm_status parse_float(const unsigned char *s, size_t n, const ztm_token 
     }
     if (n - i == 3 && (memcmp(s + i, "inf", 3) == 0 || memcmp(s + i, "nan", 3) == 0)) {
         if (s[i] == 'i')
-            v->d = neg ? -HUGE_VAL : HUGE_VAL;
+            v->u.d = neg ? -HUGE_VAL : HUGE_VAL;
         else
-            v->d = NAN;
+            v->u.d = NAN;
         return ZTM_OK;
     }
     /* float-int-part ( frac [ exp ] / exp ), every part with underscores
@@ -153,7 +154,7 @@ static ztm_status parse_float(const unsigned char *s, size_t n, const ztm_token 
         if (p < n && (s[p] == '+' || s[p] == '-'))
             buf[k++] = (char) s[p++];
         d = digits_us(s + p, n - p, is_dec, buf + k);
-        if (!d) /* GUARD: float_exp */
+        if (!d)   /* also refused by the span-end check; defence in depth */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_FLOAT);
         k += d;
         p = n;
@@ -161,12 +162,12 @@ static ztm_status parse_float(const unsigned char *s, size_t n, const ztm_token 
     }
     if (p != n || (!has_frac && !has_exp))
         return fail_tok(tok, fault, ZTM_ERR_INVALID_FLOAT);
-    zuf_result r = zuf_parse_f64(buf, buf + k, &v->d);
+    zuf_result r = zuf_parse_f64(buf, buf + k, &v->u.d);
     if (r.ptr != buf + k || (r.status != ZUF_OK && r.status != ZUF_ERR_RANGE))
         return fail_tok(tok, fault, ZTM_ERR_INVALID_FLOAT);
     /* Underflow to zero is rounding; overflow to infinity is a value R
      * cannot hold, refused by the build phase. */
-    if (r.status == ZUF_ERR_RANGE && (v->d == HUGE_VAL || v->d == -HUGE_VAL))
+    if (r.status == ZUF_ERR_RANGE && (v->u.d == HUGE_VAL || v->u.d == -HUGE_VAL))
         v->overflow = 1;
     return ZTM_OK;
 }
@@ -190,7 +191,7 @@ static size_t time_shape(const unsigned char *s, size_t n, ztm_version version)
             size_t q = p + 1;
             while (q < n && is_dec(s[q]))
                 q++;
-            if (q == p + 1) /* GUARD: fraction_digits */
+            if (q == p + 1)   /* zufast refuses this too; defence in depth */
                 return 0;
             p = q;
         }
@@ -214,13 +215,13 @@ static ztm_status parse_datetime(const unsigned char *s, size_t n, const ztm_tok
         char *buf = ztm_scratch(n + 11, 1);
         memcpy(buf, "2000-01-01T", 11);
         memcpy(buf + 11, s, n);
-        r = zuf_parse_datetime(buf, buf + n + 11, &v->dt);
+        r = zuf_parse_datetime(buf, buf + n + 11, &v->u.dt);
         if (r.status != ZUF_OK || r.ptr != buf + n + 11) /* GUARD: time_fields */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
         return ZTM_OK;
     }
     if (tok->type == ZTM_TOK_LOCAL_DATE) {
-        r = zuf_parse_date(first, last, &v->dt);
+        r = zuf_parse_date(first, last, &v->u.dt);
         if (n != 10 || r.status != ZUF_OK || r.ptr != last) /* GUARD: date_fields */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
         return ZTM_OK;
@@ -232,19 +233,20 @@ static ztm_status parse_datetime(const unsigned char *s, size_t n, const ztm_tok
     if (p == 11)
         return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
     if (tok->type == ZTM_TOK_DATETIME) {
-        if (p + 1 == n && (s[p] == 'Z' || s[p] == 'z'))
-            p++;
-        else if (p + 6 == n && (s[p] == '+' || s[p] == '-') && two_digits(s + p + 1) &&
-                 s[p + 3] == ':' && two_digits(s + p + 4))
-            p += 6;
-        else /* GUARD: offset_shape */
+        /* Z, or +-HH:MM: zufast also takes +-HHMM and +-HH, TOML does not. */
+        int zulu = p + 1 == n && (s[p] == 'Z' || s[p] == 'z');
+        int hhmm = p + 6 == n && (s[p] == '+' || s[p] == '-') && two_digits(s + p + 1) &&
+                   s[p + 3] == ':' && two_digits(s + p + 4);
+        if (!zulu && !hhmm) /* GUARD: offset_shape */
             return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
+        p = n;
     }
     if (p != n)
         return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
-    r = zuf_parse_datetime(first, last, &v->dt);
-    if (r.status != ZUF_OK || r.ptr != last || !v->dt.has_time ||
-        v->dt.has_offset != (tok->type == ZTM_TOK_DATETIME)) /* GUARD: datetime_fields */
+    r = zuf_parse_datetime(first, last, &v->u.dt);
+    int fields_ok = r.status == ZUF_OK && r.ptr == last && v->u.dt.has_time &&
+                    v->u.dt.has_offset == (tok->type == ZTM_TOK_DATETIME);
+    if (!fields_ok) /* GUARD: datetime_fields */
         return fail_tok(tok, fault, ZTM_ERR_INVALID_DATETIME);
     return ZTM_OK;
 }
@@ -288,7 +290,7 @@ static uint32_t hex_run(const unsigned char *s, size_t ndig)
 /* Decodes a string token the lexer has already validated, so no check here
  * can fail: the escapes are known good and the decoded length is known. */
 static void decode_string(const ztm_lexer *lx, const ztm_token *tok, const char **out,
-                          size_t *outn, int *has_nul)
+                          size_t *outn, uint8_t *has_nul)
 {
     const unsigned char *b = lx->buf;
     int ml = tok->type == ZTM_TOK_ML_BASIC_STRING || tok->type == ZTM_TOK_ML_LITERAL_STRING;
@@ -345,7 +347,7 @@ static void decode_string(const ztm_lexer *lx, const ztm_token *tok, const char 
     *outn = k;
 }
 
-void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, int *has_nul)
+void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, uint8_t *has_nul)
 {
     if (tok->type == ZTM_TOK_BARE_KEY) {
         *s = (const char *) lx->buf + tok->offset;
@@ -360,16 +362,16 @@ ztm_status ztm_value_of(ztm_lexer *lx, const ztm_token *tok, ztm_value *v, ztm_f
 {
     const unsigned char *s = lx->buf + tok->offset;
     memset(v, 0, sizeof *v);
-    v->type = tok->type;
+    v->type = (uint8_t) tok->type;
     switch (tok->type) {
     case ZTM_TOK_BASIC_STRING:
     case ZTM_TOK_LITERAL_STRING:
     case ZTM_TOK_ML_BASIC_STRING:
     case ZTM_TOK_ML_LITERAL_STRING:
-        decode_string(lx, tok, &v->s, &v->n, &v->has_nul);
+        decode_string(lx, tok, &v->u.str.s, &v->u.str.n, &v->has_nul);
         return ZTM_OK;
     case ZTM_TOK_BOOL:
-        v->b = s[0] == 't';
+        v->u.b = s[0] == 't';
         return ZTM_OK;
     case ZTM_TOK_INTEGER:
         return parse_integer(s, tok->len, tok, v, fault);

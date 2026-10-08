@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stages 0 and 1 merged (#11, #14); Stage 2 (values) in review on `stage-2-values`.** The lexer (`src/ztm_lex.c`) and the value parser (`src/ztm_value.c`) accept every valid toml-test document for TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default) and refuse every invalid scalar; `ztm_tokens()` is the internal entry the tests use, with a `value` and `class` column per token. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: Stage 3, the grammar and the table model, which exports `toml_validate()`.
+**2026-10-08: Stages 0–2 merged (#11, #14, #15); Stage 3 (grammar and table model) in review on `stage-3-grammar`.** `toml_validate()` is exported and passes every toml-test case of TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default). The check phase is `src/ztm_lex.c` (lexer), `src/ztm_value.c` (scalars through zufast) and `src/ztm_parse.c` (grammar, table model as a node tree plus a (parent, key) hash, limits); its output, `ztm_doc`, is what the build phase will walk. `ztm_tokens()` stays as an internal entry for lexer tests. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-mutation-check` (40 guards), `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: Stage 4, the build phase and `toml_parse()`.
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 
@@ -78,12 +78,14 @@ src/          init.c                      registration only
               ztm_r.c, ztm_r.h            .Call entry points and SEXP glue
               ztm_check.h                 the check phase's R-free interface
               ztm_lex.c, ztm_parse.c      check phase: lexer, grammar, table model, limits
+              ztm_check.h                 its R-free interface: tokens, values, the node tree
               ztm_status.c                enumerator names (R-free)
               ztm_build.c                 build phase: §6 mapping; ztm_mkchar() the one CHARSXP site
               ztm_emit.c                  §7, §8
               ztm_time.c                  local time; calendar glue over zufast
               Makevars                    hand-listed OBJECTS, $(C_VISIBILITY)
-fuzz/         fuzz_parse.c, fuzz_canary.c (not in the tarball)
+fuzz/         fuzz_parse.c, fuzz_canary.c, probe.c (the mutation check's driver), arena.c
+              (not in the tarball)
 tools/        gate scripts above
 tests/testthat/toml-test/   the suite at a pinned tag, with manifest.tsv (not under fixtures/:
               the 100-byte tarball path limit)

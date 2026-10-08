@@ -11,6 +11,7 @@ PKG_CFLAGS = $(C_VISIBILITY)
 OBJECTS = \
 	init.o \
 	ztm_lex.o \
+	ztm_parse.o \
 	ztm_r.o \
 	ztm_status.o \
 	ztm_value.o

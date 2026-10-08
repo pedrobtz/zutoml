@@ -15,17 +15,23 @@
  * Inf, which means no limit. */
 static uint64_t limit_arg(SEXP x)
 {
+    if (Rf_isNull(x))
+        return UINT64_MAX;
     double v = Rf_asReal(x);
     if (!R_FINITE(v) || v >= 18446744073709551615.0)
         return UINT64_MAX;
     return (uint64_t) v;
 }
 
-void ztm_opts_from_r(ztm_opts *opt, SEXP version, SEXP max_size, SEXP max_string)
+void ztm_opts_from_r(ztm_opts *opt, SEXP version, SEXP max_size, SEXP max_depth,
+                     SEXP max_items, SEXP max_string)
 {
     opt->version = Rf_asInteger(version) == 10 ? ZTM_TOML_1_0 : ZTM_TOML_1_1;
     opt->max_size = limit_arg(max_size);
+    opt->max_items = limit_arg(max_items);
     opt->max_string = limit_arg(max_string);
+    uint64_t depth = limit_arg(max_depth);
+    opt->max_depth = depth >= UINT32_MAX ? UINT32_MAX - 1 : (uint32_t) depth;
 }
 
 static SEXP mk_named_list(int n, const char **names)
@@ -96,30 +102,30 @@ static SEXP value_text(const ztm_value *v)
 {
     char buf[64];
     size_t n = 0;
-    switch (v->type) {
+    switch ((ztm_tok_type) v->type) {
     case ZTM_TOK_BASIC_STRING:
     case ZTM_TOK_LITERAL_STRING:
     case ZTM_TOK_ML_BASIC_STRING:
     case ZTM_TOK_ML_LITERAL_STRING:
         if (v->has_nul)
             return NA_STRING;
-        return Rf_mkCharLenCE(v->s, (int) v->n, CE_UTF8);
+        return Rf_mkCharLenCE(v->u.str.s, (int) v->u.str.n, CE_UTF8);
     case ZTM_TOK_BOOL:
-        return Rf_mkChar(v->b ? "true" : "false");
+        return Rf_mkChar(v->u.b ? "true" : "false");
     case ZTM_TOK_INTEGER:
-        n = i64_text(buf, v->i);
+        n = i64_text(buf, v->u.i);
         break;
     case ZTM_TOK_FLOAT:
-        n = zuf_format_f64(buf, sizeof buf, v->d);
+        n = zuf_format_f64(buf, sizeof buf, v->u.d);
         break;
     case ZTM_TOK_DATETIME:
     case ZTM_TOK_LOCAL_DATETIME:
     case ZTM_TOK_LOCAL_DATE:
-        n = zuf_format_datetime(buf, sizeof buf, &v->dt);
+        n = zuf_format_datetime(buf, sizeof buf, &v->u.dt);
         break;
     case ZTM_TOK_LOCAL_TIME:
         /* Formatted on the borrowed date (ztm_value.c), date dropped. */
-        n = zuf_format_datetime(buf, sizeof buf, &v->dt);
+        n = zuf_format_datetime(buf, sizeof buf, &v->u.dt);
         return Rf_mkCharLen(buf + 11, (int) n - 11);
     default:
         return NA_STRING;
@@ -129,7 +135,7 @@ static SEXP value_text(const ztm_value *v)
 
 static const char *value_class(const ztm_value *v)
 {
-    switch (v->type) {
+    switch ((ztm_tok_type) v->type) {
     case ZTM_TOK_INTEGER:
         return v->int_class == ZTM_INT_FITS_INTEGER ? "integer"
                : v->int_class == ZTM_INT_FITS_DOUBLE ? "double" : "bigint";
@@ -155,7 +161,7 @@ SEXP zutoml_tokens(SEXP x, SEXP version, SEXP max_size, SEXP max_string)
     ztm_token *toks = NULL;
     ztm_value *vals = NULL;
     size_t n = 0;
-    ztm_opts_from_r(&opt, version, max_size, max_string);
+    ztm_opts_from_r(&opt, version, max_size, R_NilValue, R_NilValue, max_string);
     ztm_status s = ztm_tokenize(RAW(x), (size_t) XLENGTH(x), &opt, &toks, &vals, &n, &fault);
     if (s != ZTM_OK) {
         static const char *names[] = {"fault"};
@@ -191,4 +197,19 @@ SEXP zutoml_tokens(SEXP x, SEXP version, SEXP max_size, SEXP max_string)
     }
     UNPROTECT(1);
     return out;
+}
+
+/* zutoml_check(x, version, max_size, max_depth, max_items, max_string): the
+ * whole check phase (toml_validate()). NULL when the document is TOML, or
+ * the fault. */
+SEXP zutoml_check(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
+                  SEXP max_string)
+{
+    ztm_opts opt;
+    ztm_fault fault;
+    ztm_doc doc;
+    ztm_opts_from_r(&opt, version, max_size, max_depth, max_items, max_string);
+    if (ztm_parse(RAW(x), (size_t) XLENGTH(x), &opt, &doc, &fault) != ZTM_OK)
+        return ztm_fault_to_r(&fault);
+    return R_NilValue;
 }

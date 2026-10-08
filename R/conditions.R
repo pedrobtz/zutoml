@@ -97,7 +97,11 @@ ztm_parse_statuses <- c(
   "invalid_integer",
   "integer_range",
   "invalid_float",
-  "invalid_datetime"
+  "invalid_datetime",
+  "unexpected_token",
+  "duplicate_key",
+  "table_redefined",
+  "inline_table_extended"
 )
 
 # English for each status, for the message only. Tests never match it.
@@ -113,7 +117,11 @@ ztm_status_text <- c(
   invalid_integer = "not a TOML integer",
   integer_range = "integer outside the 64-bit signed range",
   invalid_float = "not a TOML float",
-  invalid_datetime = "not a valid TOML date or time"
+  invalid_datetime = "not a valid TOML date or time",
+  unexpected_token = "unexpected token",
+  duplicate_key = "key defined twice",
+  table_redefined = "table defined twice, or extended where TOML forbids it",
+  inline_table_extended = "an inline table cannot be added to once closed"
 )
 
 ztm_fault_message <- function(fault, class) {

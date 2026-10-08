@@ -3,6 +3,7 @@
 #
 #   lint      project C warning-free under -Wall -Wextra -Wpedantic -Werror
 #   symbols   the installed .so exports R_init_zutoml only; no stdio or exit
+#   mutation  every /* GUARD */ in the check phase is load-bearing
 #   fuzz      libFuzzer over the R-free check phase, canary first; the grown
 #             corpus is cached between runs, so fuzzing accumulates:
 #             2 minutes per pull-request push, 30 minutes nightly
@@ -22,7 +23,7 @@ permissions:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    name: lint, symbols
+    name: lint, symbols, mutation
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -35,6 +36,7 @@ jobs:
           dependencies: '"hard"'
           extra-packages: any::pkgload
       - run: tools/run-lint
+      - run: tools/run-mutation-check
       - name: Install and check symbols
         run: |
           mkdir -p "$RUNNER_TEMP/lib"

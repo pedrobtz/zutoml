@@ -4,13 +4,11 @@
 #   Rscript tools/conformance.R [version]     default 1.0.0
 #
 # Loads the package from source with pkgload. Exits non-zero when a valid
-# case is refused: at every stage, the check phase must accept all valid
-# TOML. Invalid cases still accepted are reported, and become failures once
-# the stage that refuses them has landed (ZUTOML_CONFORMANCE_STRICT=1).
+# case is refused or an invalid case accepted: since Stage 3 the check phase
+# passes the whole suite, and this is the gate that keeps it so.
 suppressMessages(pkgload::load_all(quiet = TRUE))
 args <- commandArgs(trailingOnly = TRUE)
 version <- if (length(args)) args[[1]] else "1.0.0"
-strict <- nzchar(Sys.getenv("ZUTOML_CONFORMANCE_STRICT"))
 
 m <- utils::read.delim("tests/testthat/toml-test/manifest.tsv", colClasses = "character", quote = "")
 m <- m[vapply(strsplit(m$toml, ";", fixed = TRUE), function(v) version %in% v, TRUE), ]
@@ -18,7 +16,7 @@ docs <- m$path[endsWith(m$path, ".toml")]
 
 check <- function(path) {
   bytes <- readBin(file.path("tests/testthat/toml-test", path), "raw", 1e7)
-  r <- tryCatch({ ztm_tokens(bytes, version = version); NA_character_ }, zutoml_error = function(e) e$kind)
+  r <- tryCatch({ toml_validate(bytes, version = version, error = TRUE); NA_character_ }, zutoml_error = function(e) e$kind)
   r
 }
 kind <- sub("/.*$", "", docs)
@@ -28,7 +26,7 @@ ok <- ifelse(kind == "valid", is.na(res), !is.na(res))
 
 tab <- aggregate(ok, list(kind = kind, dir = dir), function(v) sprintf("%d/%d", sum(v), length(v)))
 names(tab)[3] <- "passing"
-cat(sprintf("toml-test %s, TOML %s, through the lexer\n\n", readLines("tests/testthat/toml-test/VERSION")[1], version))
+cat(sprintf("toml-test %s, TOML %s, through toml_validate()\n\n", readLines("tests/testthat/toml-test/VERSION")[1], version))
 print(tab[order(tab$kind, tab$dir), ], row.names = FALSE)
 
 bad_valid <- docs[kind == "valid" & !ok]
@@ -40,7 +38,7 @@ if (length(bad_valid)) {
   cat(sprintf("  %s (%s)\n", bad_valid, res[kind == "valid" & !ok]), sep = "")
   quit(status = 1)
 }
-if (strict && any(!ok)) {
+if (any(!ok)) {
   cat("\nFAIL: invalid cases accepted:\n")
   cat(sprintf("  %s\n", docs[!ok]), sep = "")
   quit(status = 1)

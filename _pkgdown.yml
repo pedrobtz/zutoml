@@ -9,6 +9,9 @@ development:
   mode: auto
 
 reference:
+  - title: Read TOML
+    contents:
+      - toml_validate
   - title: Errors
     contents:
       - zutoml-conditions

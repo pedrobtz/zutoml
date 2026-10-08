@@ -1,0 +1,111 @@
+#!/bin/sh
+# Proves the check phase's guards are load-bearing (roadmap Stage 3): each
+# guard, marked "/* GUARD: name */" on its if-line in src/ztm_*.c, is
+# disabled in turn in a scratch copy, and its hostile input must then get a
+# different answer. A guard whose removal changes nothing was never doing
+# anything. Checked through fuzz/probe.c, the R-free check phase. Every
+# marker must have a case below, and every case a marker. Run from the
+# package root; needs zufast installed.
+set -eu
+
+CC=${CC:-cc}
+ZINC=$(Rscript -e 'cat(system.file("include", package = "zufast"))')
+[ -n "$ZINC" ] || { echo "run-mutation-check: zufast is not installed" >&2; exit 2; }
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+build() {  # build DIR OUT
+  $CC -std=gnu17 -O1 -DZTM_STANDALONE -isystem "$ZINC" -I"$1" fuzz/probe.c fuzz/arena.c \
+    "$1/ztm_lex.c" "$1/ztm_parse.c" "$1/ztm_status.c" "$1/ztm_value.c" -o "$2"
+}
+
+# guard | document (printf format) | version size depth items string | status with the guard
+L="11 1000000 128 1000000 1000000"
+cases="
+max_size|a = 1|11 4 128 1000000 1000000|size_limit
+max_string|a = 'xyzw'|11 1000000 128 1000000 3|string_limit
+unicode_escape_digits|a = \"\\\\u12\"|$L|bad_unicode_escape
+unicode_scalar|a = \"\\\\uD800\"|$L|bad_unicode_escape
+bad_escape|a = \"\\\\q\"|$L|bad_escape
+escape_e_1_0|a = \"\\\\e\"|10 1000000 128 1000000 1000000|bad_escape
+escape_x_1_0|a = \"\\\\x41\"|10 1000000 128 1000000 1000000|bad_escape
+control_in_string|a = \"x\\001\"|$L|control_character
+control_in_ml_string|a = '''x\\001'''|$L|control_character
+control_in_comment|# x\\001|$L|control_character
+bare_cr|a = 1\\rb = 2|$L|control_character
+multiline_key|'''a''' = 1|$L|multiline_key
+invalid_value|a = foo|$L|invalid_value
+control_outside_string|a = 1\\001|$L|control_character
+underscore_between_digits|a = 1__0|$L|invalid_integer
+integer_leading_zero|a = 01|$L|invalid_integer
+integer_range|a = 9223372036854775808|$L|integer_range
+float_int_part|a = 01.0|$L|invalid_float
+float_frac|a = 1._0|$L|invalid_float
+seconds_required_1_0|a = 07:32|10 1000000 128 1000000 1000000|invalid_datetime
+time_fields|a = 25:00:00|$L|invalid_datetime
+date_fields|a = 2100-02-29|$L|invalid_datetime
+offset_shape|a = 1979-05-27T07:32:00+0700|$L|invalid_datetime
+datetime_fields|a = 1979-02-30T07:32:00Z|$L|invalid_datetime
+max_items|a = [1, 2, 3]|11 1000000 128 3 1000000|item_limit
+max_depth|a = [[[1]]]|11 1000000 3 1000000 1000000|depth_limit
+dotted_through_value|a = 1\\na.b = 2|$L|duplicate_key
+dotted_into_inline|a = {b = 1}\\na.c = 2|$L|inline_table_extended
+dotted_into_header_table|[a.b.c]\\n[a]\\nb.c.t = 1|$L|table_redefined
+duplicate_key|a = 1\\na = 2|$L|duplicate_key
+header_through_value|a = 1\\n[a.b]|$L|duplicate_key
+header_into_inline|a = {b = 1}\\n[a.c]|$L|inline_table_extended
+header_over_value|a = 1\\n[a]|$L|duplicate_key
+table_redefined|[a]\\n[a]|$L|table_redefined
+array_table_redefined|[a]\\n[[a]]|$L|table_redefined
+array_separator|a = [1 2]|$L|unexpected_token
+inline_table_separator|a = {b = 1 c d = 2}|$L|unexpected_token
+end_of_line|a = 1 x\\n|$L|unexpected_token
+header_close|[a\\n|$L|unexpected_token
+key_value_equals|a , 1|$L|unexpected_token
+"
+
+# Every marker has a case, every case a marker.
+grep -ho 'GUARD: [a-z0-9_]*' src/ztm_*.c | sed 's/GUARD: //' | sort > "$WORK/markers"
+printf '%s\n' "$cases" | awk -F'|' 'NF {print $1}' | sort > "$WORK/cased"
+if ! cmp -s "$WORK/markers" "$WORK/cased"; then
+  echo "FAIL: guard markers and cases differ (< marker only, > case only):" >&2
+  diff "$WORK/markers" "$WORK/cased" | grep '^[<>]' >&2 || true
+  exit 1
+fi
+
+build src "$WORK/probe-original"
+printf '%s\n' "$cases" | while IFS='|' read -r guard doc opts want; do
+  [ -n "$guard" ] || continue
+  printf "$doc" > "$WORK/doc"
+  got=$("$WORK/probe-original" "$WORK/doc" $opts)
+  if [ "$got" != "$want" ]; then
+    echo "FAIL: $guard: gives $got with the guard, expected $want" >&2
+    echo 1 > "$WORK/failed"
+    continue
+  fi
+  file=$(grep -l "GUARD: $guard \*/" src/ztm_*.c)
+  n=$(grep -c "GUARD: $guard \*/" "$file")
+  if [ "$n" != 1 ]; then
+    echo "FAIL: $guard: found $n markers in $file, expected 1" >&2
+    echo 1 > "$WORK/failed"
+    continue
+  fi
+  rm -rf "$WORK/src"
+  cp -R src "$WORK/src"
+  sed "s|if (\(.*\))\( *{\)\{0,1\} */\* GUARD: $guard \*/|if (0 \&\& (\1))\2|" "$file" > "$WORK/$file"
+  if cmp -s "$file" "$WORK/$file"; then
+    echo "FAIL: $guard: the mutation did not apply" >&2
+    echo 1 > "$WORK/failed"
+    continue
+  fi
+  build "$WORK/src" "$WORK/probe-$guard" 2> /dev/null
+  mutant=$("$WORK/probe-$guard" "$WORK/doc" $opts 2>/dev/null) || mutant="a crash (exit $?)"
+  if [ "$mutant" = "$want" ]; then
+    echo "FAIL: $guard: removing the guard changes nothing (still $want)" >&2
+    echo 1 > "$WORK/failed"
+  else
+    echo "==> $guard: $want with the guard, $mutant without"
+  fi
+done
+[ ! -f "$WORK/failed" ] || exit 1
+echo "==> every guard is load-bearing"

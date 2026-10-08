@@ -25,10 +25,10 @@ if ! $CC -fsanitize=fuzzer "$WORK/probe.c" -o "$WORK/probe" 2>/dev/null; then
   exit 2
 fi
 
-SRCS="src/ztm_lex.c src/ztm_status.c src/ztm_value.c fuzz/arena.c"
+SRCS="src/ztm_lex.c src/ztm_parse.c src/ztm_status.c src/ztm_value.c fuzz/arena.c"
 FLAGS="-std=gnu17 -g -O1 -fno-omit-frame-pointer -fsanitize=fuzzer,address,undefined
        -fno-sanitize-recover=undefined -UNDEBUG -DZTM_STANDALONE -isystem $ZINC -Isrc"
-for t in fuzz_canary fuzz_lex; do
+for t in fuzz_canary fuzz_parse; do
   $CC $FLAGS "fuzz/$t.c" $SRCS -o "$WORK/$t"
 done
 
@@ -49,13 +49,13 @@ echo "==> canary crashed, as it must"
 
 # 2. The target, for SECS seconds, over the cached corpus and the seeds.
 status=0
-"$WORK/fuzz_lex" -max_total_time="$SECS" -max_len=65536 -dict=fuzz/toml.dict \
+"$WORK/fuzz_parse" -max_total_time="$SECS" -max_len=65536 -dict=fuzz/toml.dict \
   -artifact_prefix="$WORK/artifacts/" "$CORPUS" "$WORK/seeds" > "$WORK/fuzz.log" 2>&1 || status=$?
 tail -5 "$WORK/fuzz.log"
 if [ "$status" != 0 ] || [ -n "$(ls -A "$WORK/artifacts")" ]; then
-  echo "FAIL: fuzz_lex found a crash (exit $status):" >&2
+  echo "FAIL: fuzz_parse found a crash (exit $status):" >&2
   ls "$WORK/artifacts" >&2
   mkdir -p fuzz/artifacts && cp "$WORK/artifacts"/* fuzz/artifacts/ 2>/dev/null || true
   exit 1
 fi
-echo "==> fuzz_lex: ${SECS}s, no finding; corpus now $(ls "$CORPUS" | wc -l | tr -d ' ') inputs"
+echo "==> fuzz_parse: ${SECS}s, no finding; corpus now $(ls "$CORPUS" | wc -l | tr -d ' ') inputs"

@@ -143,7 +143,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 2 — Values: strings, numbers, date-times through zufast · M
 
-**Status:** in review (branch `stage-2-values`).
+**Status:** done 2026-10-08 (#15, closes #4).
+
+**What actually happened (CI).** rchk could not install the package: its image installs only from CRAN and Bioconductor, and zufast is on neither. `github-packages: pedrobtz/zufast` installs it first, as zubin does; drop it once zufast is on CRAN.
 
 **What actually happened.** `src/ztm_value.c` checks each span's TOML shape, strips prefixes and underscores, and asks zufast for the value with the whole span consumed; strings are decoded into scratch. Two contract corrections: fractions past nine digits are truncated, as the spec requires (design §6.1), and a float overflow is flagged for the build phase as unrepresentable (§6.4) rather than refused, so `toml_validate()` stays true for valid TOML. Local time borrows zufast's field validation by parsing it behind a fixed date. Every scalar directory of toml-test (`integer`, `float`, `datetime`, `local-*`) passes, valid and invalid, for both versions; the two `invalid/string` cases still accepted are grammar errors (two values without a separator), Stage 3's.
 
@@ -168,7 +170,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 3 — The table model and the grammar · L
 
-**Status:** not started.
+**Status:** in review (branch `stage-3-grammar`).
+
+**What actually happened.** The parser (`src/ztm_parse.c`) passed every toml-test case of both versions on its first build: 1.0.0 valid 205/205 and invalid 474/474, 1.1.0 valid 214/214 and invalid 467/467. The table model is a node tree in definition order (which the build phase will walk, so the "event list" is the tree) plus a hash of (parent, key); tables carry one of four states (implicit, explicit, dotted, inline), and each TOML rule is a check on them. The suite settled two rules the spec leaves to examples: a dotted key may pass through a table a header only implied (and so defines it), but not through one a header defined (`append-with-dotted-keys-*`). Five of the planned guards turned out to be backed by a later check (zufast, or the span-end test), so removing them changed nothing: they stay as unmarked defence in depth, and the mutation check covers the 40 that are load-bearing. The 10 MB dotted-key hostile input is `zutoml_depth_limit`, not `zutoml_string_limit` as planned: its parts are short, and each one nests. `ztm_value` became a union to keep a node near 100 bytes.
 
 **Goal:** `toml_validate()` is exported, and the whole `toml-test` suite passes through it.
 
@@ -186,7 +190,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 - Every `valid/` case returns `TRUE` and every `invalid/` case raises `zutoml_parse_error` with the expected `kind`, through `toml_validate()`, in `conformance.yaml` on every platform.
 - Every guard has a mutation case and `tools/run-mutation-check` passes.
-- `[` repeated 10^6 times is `zutoml_depth_limit`; 10^6 `[[a]]` headers is `zutoml_item_limit` or parses, as the limits say; a 10 MB dotted key is `zutoml_string_limit`; no stack overflow under a 1 MB stack in the sanitizer job.
+- `[` repeated 10^6 times is `zutoml_depth_limit`; 10^6 `[[a]]` headers is `zutoml_item_limit` or parses, as the limits say; a dotted key of 5 × 10^5 parts is `zutoml_depth_limit` (amended: each part nests); no stack overflow under a 1 MB stack in the sanitizer job.
 - **If this exit is not met in the stage's time, §18 Q6 is decided** (vendor `tomlc17`), recorded in §17, and Stage 4 proceeds over its tree.
 
 ---

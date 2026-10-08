@@ -17,8 +17,14 @@ static const char *const status_names[ZTM_STATUS_COUNT] = {
     "integer_range",
     "invalid_float",
     "invalid_datetime",
+    "unexpected_token",
+    "duplicate_key",
+    "table_redefined",
+    "inline_table_extended",
     "size_limit",
     "string_limit",
+    "depth_limit",
+    "item_limit",
 };
 
 const char *ztm_status_name(ztm_status s)

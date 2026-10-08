@@ -154,12 +154,25 @@ static size_t utf8_len(uint32_t cp)
 /* An escape at lx->buf[p] == '\\' inside a basic string: advances *pp past
  * it and adds its decoded length. The line-ending backslash of multi-line
  * strings is handled by the caller. */
+static int is_escape_char(unsigned char e)
+{
+    switch (e) {
+    case 'b': case 't': case 'n': case 'f': case 'r': case '"': case '\\':
+    case 'u': case 'U': case 'e': case 'x':
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static ztm_status lex_escape(ztm_lexer *lx, size_t *pp, size_t *decoded, ztm_fault *fault)
 {
     size_t p = *pp;
     if (p + 1 >= lx->len)
         return fail(lx, fault, ZTM_ERR_UNTERMINATED_STRING, lx->len);
     unsigned char e = lx->buf[p + 1];
+    if (!is_escape_char(e)) /* GUARD: bad_escape */
+        return fail(lx, fault, ZTM_ERR_BAD_ESCAPE, p);
     switch (e) {
     case 'b': case 't': case 'n': case 'f': case 'r': case '"': case '\\':
         *decoded += 1;
@@ -188,8 +201,12 @@ static ztm_status lex_escape(ztm_lexer *lx, size_t *pp, size_t *decoded, ztm_fau
         *pp = p + 2 + ndig;
         return ZTM_OK;
     }
-    default: /* GUARD: bad_escape */
-        return fail(lx, fault, ZTM_ERR_BAD_ESCAPE, p);
+    default:
+        /* Unreachable while the bad_escape guard stands; with it removed
+         * (tools/run-mutation-check), an unknown escape decodes as itself. */
+        *decoded += 1;
+        *pp = p + 2;
+        return ZTM_OK;
     }
 }
 
@@ -444,12 +461,11 @@ ztm_status ztm_lex_next(ztm_lexer *lx, ztm_mode mode, ztm_token *tok, ztm_fault 
         newline_at(lx, lx->pos);
         return ZTM_OK;
     case '\r':
-        if (left >= 2 && b[1] == '\n') {
-            punct(lx, tok, ZTM_TOK_NEWLINE, 2);
-            newline_at(lx, lx->pos);
-            return ZTM_OK;
-        }
-        return fail(lx, fault, ZTM_ERR_CONTROL_CHARACTER, lx->pos); /* GUARD: bare_cr */
+        if (left < 2 || b[1] != '\n') /* GUARD: bare_cr */
+            return fail(lx, fault, ZTM_ERR_CONTROL_CHARACTER, lx->pos);
+        punct(lx, tok, ZTM_TOK_NEWLINE, left >= 2 ? 2 : 1);
+        newline_at(lx, lx->pos);
+        return ZTM_OK;
     case '=': punct(lx, tok, ZTM_TOK_EQUALS, 1); return ZTM_OK;
     case ',': punct(lx, tok, ZTM_TOK_COMMA, 1); return ZTM_OK;
     case '{': punct(lx, tok, ZTM_TOK_LBRACE, 1); return ZTM_OK;

@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stage 0 in progress on `stage-0-baseline`; no parser code yet.** The package checks 0/0/0 with real metadata, `src/init.c` (registration only, `R_init_zutoml` the one visible symbol), `R/conditions.R` and the test suite: `toml-test` v2.2.0 committed under `tests/testthat/toml-test/`, the helpers, and `test-conformance.R`, which skips until the parser exports. Left for Stage 0: CI green on the pull request. Next: Stage 1, the lexer.
+**2026-10-08: Stage 0 merged (#11); Stage 1 (the lexer) in review on `stage-1-lexer`.** `src/ztm_lex.c` tokenises every valid toml-test document for TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default) with positioned faults; `ztm_tokens()` is the internal entry the tests use. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml` and `hardening.yaml`. Next: Stage 2, values through zufast.
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 

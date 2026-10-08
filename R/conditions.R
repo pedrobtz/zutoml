@@ -68,3 +68,100 @@ ztm_limit_class <- function(limit) {
   )
   c(sub, "zutoml_limit_error")
 }
+
+# ---- faults from the check phase -------------------------------------------
+
+# Status name (the condition's `kind`) -> class vector, by the enumerator's
+# name, never by English. test-status.R checks that every name C can report
+# is here.
+ztm_status_class <- function(status) {
+  switch(
+    status,
+    size_limit = ztm_limit_class("max_size"),
+    depth_limit = ztm_limit_class("max_depth"),
+    item_limit = ztm_limit_class("max_items"),
+    string_limit = ztm_limit_class("max_string"),
+    if (status %in% ztm_parse_statuses) "zutoml_parse_error" else character()
+  )
+}
+
+ztm_parse_statuses <- c(
+  "invalid_utf8",
+  "control_character",
+  "bad_escape",
+  "bad_unicode_escape",
+  "unterminated_string",
+  "multiline_key",
+  "unexpected_character",
+  "invalid_value"
+)
+
+# English for each status, for the message only. Tests never match it.
+ztm_status_text <- c(
+  invalid_utf8 = "the document is not valid UTF-8",
+  control_character = "control character not allowed here",
+  bad_escape = "invalid escape sequence",
+  bad_unicode_escape = "\\u or \\U escape is not a Unicode scalar value",
+  unterminated_string = "string is not terminated",
+  multiline_key = "a multi-line string cannot be a key",
+  unexpected_character = "unexpected character",
+  invalid_value = "not a TOML value"
+)
+
+ztm_fault_message <- function(fault, class) {
+  fmt <- function(v) format(v, scientific = FALSE, big.mark = "")
+  if ("zutoml_limit_error" %in% class) {
+    what <- switch(
+      fault$limit,
+      max_size = "the document is larger than",
+      max_depth = "the document nests deeper than",
+      max_items = "the document has more keys and array elements than",
+      max_string = "a string or key is longer than"
+    )
+    at <- if (is.na(fault$line)) {
+      ""
+    } else {
+      paste0(" at line ", fault$line, ", column ", fault$column)
+    }
+    return(paste0(
+      "TOML limit reached",
+      at,
+      ": ",
+      what,
+      " ",
+      fault$limit,
+      " = ",
+      fmt(fault$limit_value)
+    ))
+  }
+  text <- ztm_status_text[fault$status]
+  if (is.na(text)) {
+    text <- fault$status
+  }
+  paste0(
+    "TOML parse error at line ",
+    fault$line,
+    ", column ",
+    fault$column,
+    ": ",
+    text
+  )
+}
+
+# Raises the condition for a fault the check phase returned.
+ztm_raise_fault <- function(fault, call = NULL) {
+  class <- ztm_status_class(fault$status)
+  cond <- list(
+    message = ztm_fault_message(fault, class),
+    call = call,
+    kind = fault$status,
+    line = fault$line,
+    column = fault$column,
+    offset = fault$offset
+  )
+  if ("zutoml_limit_error" %in% class) {
+    cond$limit <- fault$limit
+    cond$limit_value <- fault$limit_value
+  }
+  stop(structure(class = c(class, "zutoml_error", "error", "condition"), cond))
+}

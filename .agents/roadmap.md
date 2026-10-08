@@ -78,7 +78,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 0 — Package identity and a clean baseline · S
 
-**Status:** in progress (branch `stage-0-baseline`). Done locally: metadata, registration, conditions, the test suite (fixtures, helpers, `test-conformance.R` skipping until the parser exports), `tools/update-fixtures`, `tools/run-conformance --fixtures-only`; `devtools::check(cran = TRUE)` 0/0/0. `coverage.yaml` pinned by commit (v1.22.0) with Dependabot; labels and tracking issues #1–#10 open. Left: CI green.
+**Status:** done 2026-10-08 (#11, closes #2).
+
+**What actually happened.** The fixtures could not live in `tests/testthat/fixtures/toml-test/`: the suite's longest path is then 107 bytes in the tarball, and R CMD check flags more than 100; they are in `tests/testthat/toml-test/`. The test suite (helpers, the tagged-JSON converter with its own tests, `test-conformance.R` skipping until the parser exports) was set up in this stage, ahead of any parser code, at the maintainer's request. toml-test moved from BurntSushi to `toml-lang`; v2.2.0 is unchanged. The parent issue is not on the board: `stage-cards.sh` in `pedrobtz/packages` needs zutoml added.
 
 **Goal:** the `usethis` skeleton becomes a package with the right metadata, registration and build hygiene, so every later stage is measured against a clean 0/0/0.
 
@@ -112,7 +114,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 1 — The lexer and the `toml-test` runner · M
 
-**Status:** not started.
+**Status:** in review (branch `stage-1-lexer`).
+
+**What actually happened.** The lexer is pull-based, told by its caller whether a key or a value comes next, since `true` and `1234` are keys before `=`; `ztm_tokenize()` drives it from the bracket structure alone until the grammar exists. Strings are validated and their decoded length measured here (escapes included), so `max_string` is enforced at Stage 1; decoding itself stays at Stage 2. §18 Q5 was decided as D17 (TOML 1.1.0 by default). `zuf_utf8_valid()` reports no position, so zutoml finds the first bad byte itself, only on failure. The runner already shows 201 of 474 invalid 1.0.0 cases refused by the lexer alone.
 
 **Goal:** every byte of a TOML document becomes a token with a line, column and byte offset, or a positioned refusal; and the conformance suite can be run, even though every case fails.
 

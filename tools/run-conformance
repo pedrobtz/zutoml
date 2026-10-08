@@ -6,8 +6,9 @@
 #       The committed suite in tests/testthat/toml-test/ must equal a fresh
 #       fetch at the pinned tag (tools/update-fixtures).
 #
-# Stage 1 extends this to run every case through the check phase and print
-# counts by directory; until then --fixtures-only is the whole job.
+#   tools/run-conformance
+#       Also runs every case, for TOML 1.0.0 and 1.1.0, through the current
+#       check phase (tools/conformance.R): every valid case must be accepted.
 set -eu
 
 WORK=$(mktemp -d)
@@ -22,7 +23,11 @@ else
   exit 1
 fi
 
-case "${1:-}" in
-  --fixtures-only) exit 0 ;;
-  *) echo "the check-phase run arrives with roadmap Stage 1" >&2; exit 0 ;;
-esac
+[ "${1:-}" = --fixtures-only ] && exit 0
+
+fail=0
+for v in 1.0.0 1.1.0; do
+  echo
+  Rscript tools/conformance.R "$v" || fail=1
+done
+exit $fail

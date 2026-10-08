@@ -35,7 +35,7 @@ Three properties shape the design:
 | Emitting a named list, nested lists, data frames as arrays of tables, vectors as arrays | yes | | |
 | `toml_validate()`: the parser with the build phase off | yes | | |
 | `toml-test` as a conformance gate, both directions | yes | | |
-| TOML v1.1.0 forms (seconds optional in times, `\e` and `\x` escapes, newlines and trailing commas in inline tables, Unicode bare keys) | | behind `version =` (§18 Q5) | |
+| TOML v1.1.0 forms (seconds optional in times, `\e` and `\x` escapes, newlines and trailing commas in inline tables), read by default; `version = "1.0.0"` strict (D17) | yes | | |
 | Format-preserving edits (comments and whitespace kept) | | | yes: a different data model (`tomledit`'s) and a different package |
 | A schema language, or validation beyond the grammar | | | yes |
 | Type sniffing of strings | | | yes |
@@ -152,6 +152,7 @@ Six functions, one value class and the info function. The `parse`/`read` and `em
 ```r
 toml_parse(
   x,
+  version      = c("1.1.0", "1.0.0"),         # D17
   simplify     = c("preserve", "none"),       # §6.3
   data_frame   = FALSE,                       # arrays of tables as frames
   big_integers = c("bigint", "double", "error"),
@@ -164,7 +165,7 @@ toml_parse(
 )
 ```
 
-`toml_read()` adds `file` and passes the rest on. `toml_validate()` takes `x` and the limits only; the mapping arguments have no meaning for it.
+`toml_read()` adds `file` and passes the rest on. `toml_validate()` takes `x`, `version` and the limits only; the mapping arguments have no meaning for it.
 
 ### Emit arguments
 
@@ -486,7 +487,7 @@ Measured by `tools/run-benchmarks` and recorded here when Stage 7 runs them: par
 |---|---|---|
 | D1 | Parser | project code, no vendored library |
 | D2 | Scalars | `zufast`, with TOML's restrictions checked first |
-| D3 | Spec version | 1.0.0; 1.1.0 later behind `version =` (see §18 Q5) |
+| D3 | Spec version | superseded by D17 |
 | D4 | Whole doubles | emitted as integers, `zucbor`'s rule |
 | D5 | Date-times | converted by default; `"keep"` returns text |
 | D6 | Local date-time | `POSIXct` with empty `tzone` |
@@ -500,11 +501,13 @@ Measured by `tools/run-benchmarks` and recorded here when Stage 7 runs them: par
 | D14 | Info function | `zutoml_info()`, the package name (R1) |
 | D15 | Base prefixes and underscores | stripped by zutoml's lexer before zufast sees the digits (*verified 2026-10-08*) |
 | D16 | Where C raises | never; statuses by enumerator name, R raises (`zucbor`'s convention) |
+| D17 | TOML 1.1.0 | read by default; `version = c("1.1.0", "1.0.0")` on every reading function, `"1.0.0"` strict; the emitter writes 1.0-compatible text whatever the version (decided at Stage 1, 2026-10-08) |
 
 Reasons where they are not in the section cited:
 
 - **D1.** Two C parsers were weighed. `toml-c` (C99, MIT) parses TOML 1.0 and passes `toml-test`, but has no emitter, reports positions less precisely than this family's conditions need, and its value model would be converted twice. `tomlc17` (*verified 2026-10-08*: MIT, an amalgamated `tomlc17.c` and `.h`, latest release R261003 of 2026-10-03, passes `toml-test` for both 1.0 and 1.1 by its README, with `toml_parse(src, len)` returning a `toml_result_t` of `ok`, `toptab` and `errmsg[200]`, datums carrying `lineno` and `colno`, and an allocator hook) is the stronger alternative and still parse-only. `toml++` is C++17 and excluded for the format packages. The grammar is small enough that a project parser with zufast's scalars is less code than a vendored tree plus its adapter, and it gives the check-then-build shape for free. Three other sources were weighed on 2026-10-08 and rejected. `teptris` (`leptris/teptris`, MIT, C, parses and emits, claims 100% of `toml-test` 1.0 and 1.1) is the first C library with an emitter, but was three weeks old with one author, a CMake multi-file tree, no allocator hook and views into the input buffer; it is a candidate for the Stage 3 fallback alongside `tomlc17`, and its `validate` command a second reader for emitted text. Adapting `yyjson` (which `zujson` vendors) offers only an arena, a writer buffer and string-scanning tricks; the grammar, the table model and the scalars, which are the work, have no JSON counterpart, so its ideas are borrowed and its code is not. `zubin`'s `zb_buf` allocates with `malloc` only, so using it would need finalizers against §13, and would add a second dependency not yet on CRAN. **Fallback:** if the project parser is not passing every `toml-test` case by the end of Stage 3, vendor `tomlc17` for the check and value phases and keep the emitter; §18 Q6.
 - **D3.** 1.1.0 was not final on the RFC's source date; it is now (§18 Q5). Adding its forms is additive and the `version =` argument keeps 1.0 documents strict.
+- **D17.** Decided at Stage 1 with the runner in hand. Through the lexer, 205 of 205 valid 1.0.0 cases and, once `\e` and `\xHH` were added (about twenty lines), 214 of 214 valid 1.1.0 cases are accepted. The other 1.1 forms are a shape check at Stage 2 (seconds optional) and a grammar rule at Stage 3 (newlines and a trailing comma in inline tables). toml-test v2.2.0 has no Unicode bare keys among its 1.1 cases, so 1.1.0 as the suite tests it keeps keys ASCII. The emitter stays 1.0-compatible because §1 promises output every reader accepts.
 - **D6.** The alternative, refusing local date-times or returning text, makes the most common form in config files (a timestamp without a zone) unusable as a time. The session-zone reading is what `as.POSIXct("2024-01-01 10:00")` does, and the loss is documented.
 - **D12.** TOML defines duplicate keys as invalid; a lenient option would make zutoml accept documents other parsers refuse, against §1.
 - **D15.** zufast's `zuf_num_options` has `base` but no prefix or separator handling; adding them to zufast would widen a primitive every consumer shares for one consumer's grammar.
@@ -519,7 +522,7 @@ Each stays the maintainer's until recorded above; the recommendation is the RFC'
 2. **`difftime` on emit.** Only `secs` within a day maps to a local time; other units and values are ambiguous. Refuse them, or emit as a float of seconds? Recommended: refuse, with the message naming `as.numeric()`.
 3. **Non-UTC `POSIXct` on emit.** Convert to UTC (as §7.1 says), or write the zone's offset at that instant (`+02:00`)? The offset form is what a person wrote; the UTC form is deterministic across sessions. Recommended: UTC, with an `offset = TRUE` argument deferred.
 4. **`toml_bigint` versus `bit64::integer64`.** `zubin` returns `integer64` by class without a dependency. TOML integers are at most 64-bit, so `integer64` would hold every one exactly. Recommended: keep the family's bigint class for consistency with `zuyaml` and `zucbor`, and record `integer64` as an `int64 =` option for later.
-5. **TOML 1.1.0 as the default** (*new, verified 2026-10-08*). toml.io now lists v1.1.0 as the current specification, `toml-test` v2.2.0 carries its cases behind `-toml 1.1`, and `tomlc17` passes both. 1.1.0 is a superset of 1.0.0 for a reader. The RFC's D3 (1.0.0 first) was made when 1.1.0 was unfinished. Recommended (this document's, not the RFC's): decide at Stage 1, when the runner exists, by running both suites; if the 1.1 forms cost little, parse `version = c("1.1.0", "1.0.0")` with 1.1.0 the default and `"1.0.0"` strict, and keep the emitter writing 1.0-compatible text always, since §1 promises output every reader accepts.
+5. *Decided at Stage 1: D17.* **TOML 1.1.0 as the default** (*new, verified 2026-10-08*). toml.io now lists v1.1.0 as the current specification, `toml-test` v2.2.0 carries its cases behind `-toml 1.1`, and `tomlc17` passes both. 1.1.0 is a superset of 1.0.0 for a reader. The RFC's D3 (1.0.0 first) was made when 1.1.0 was unfinished. Recommended (this document's, not the RFC's): decide at Stage 1, when the runner exists, by running both suites; if the 1.1 forms cost little, parse `version = c("1.1.0", "1.0.0")` with 1.1.0 the default and `"1.0.0"` strict, and keep the emitter writing 1.0-compatible text always, since §1 promises output every reader accepts.
 6. **The D1 fallback trigger.** Stage 3's exit criterion is every `toml-test` case through `toml_validate()`. If that slips, is the answer more time or `tomlc17`? Recommended: `tomlc17` (or `teptris`, if it has matured; see D1), pinned and vendored under the family's rules, with the emitter and the build phase unchanged; the check-then-build shape survives because `tomlc17` returns a whole tree before any R object is made.
 
 ---

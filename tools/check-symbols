@@ -1,0 +1,37 @@
+#!/bin/sh
+# The built shared object exports R_init_zutoml only, and references no
+# symbol R CMD check objects to: console output (stdout, stderr, printf,
+# puts, fwrite to a stream...) or ending the process (abort, exit, assert).
+# Design section 14. Run it on an R CMD INSTALL build: devtools::load_all()
+# compiles with -UNDEBUG.
+#
+# Usage: tools/check-symbols [path/to/zutoml.so]   (default: src/zutoml.so)
+set -eu
+
+SO="${1:-src/zutoml.so}"
+[ -f "$SO" ] || { echo "no shared object at $SO; build the package first" >&2; exit 2; }
+
+# Leading underscores differ by platform (_printf on macOS); __stdoutp and
+# __stderrp are macOS's names for stdout and stderr. Clang rewrites
+# fprintf(stderr, "literal") to fwrite, so the streams themselves are listed:
+# a reference to stderr is a write to the console whatever the function.
+BAD='^_*(stdout|stderr|stdoutp|stderrp|printf|vprintf|puts|putchar|fputs|fputc|fwrite|fprintf|vfprintf|abort|exit|_exit|_Exit|assert|assert_fail|assert_rtn)$'
+
+fail=0
+found=$(nm -u "$SO" | awk '{print $NF}' | grep -E "$BAD" || true)
+if [ -n "$found" ]; then
+  echo "FAIL: $SO references symbols R CMD check reports:" >&2
+  echo "$found" | sed 's/^/  /' >&2
+  fail=1
+fi
+
+# Exported text symbols: R_init_zutoml alone ($(C_VISIBILITY) hides the
+# rest). nm -g lists defined globals; T is text.
+exported=$(nm -g "$SO" | awk '$2 == "T" {print $3}' | sed 's/^_//' | grep -v '^R_init_zutoml$' || true)
+if [ -n "$exported" ]; then
+  echo "FAIL: $SO exports more than R_init_zutoml:" >&2
+  echo "$exported" | sed 's/^/  /' >&2
+  fail=1
+fi
+[ $fail = 0 ] || exit 1
+echo "==> $SO: exports R_init_zutoml only; no console-output or process-exit symbols"

@@ -3,10 +3,13 @@
 #include <R_ext/Rdynload.h>
 #include <R_ext/Visibility.h>
 
+#include "ztm_r.h"
+
 /* Every .Call entry point is listed here; R_useDynamicSymbols(dll, FALSE)
-   makes anything missing from the table unreachable by name. Stage 0 has
-   none yet (roadmap Stage 1 adds the first). */
+   makes anything missing from the table unreachable by name. */
 static const R_CallMethodDef CallEntries[] = {
+    {"zutoml_status_names", (DL_FUNC) &zutoml_status_names, 0},
+    {"zutoml_tokens",       (DL_FUNC) &zutoml_tokens,       4},
     {NULL, NULL, 0}
 };
 

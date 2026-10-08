@@ -32,3 +32,4 @@ articles:
     navbar: ~
     contents:
       - zutoml
+      - articles/usage

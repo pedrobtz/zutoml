@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stages 0–2 merged (#11, #14, #15); Stage 3 (grammar and table model) in review on `stage-3-grammar`.** `toml_validate()` is exported and passes every toml-test case of TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default). The check phase is `src/ztm_lex.c` (lexer), `src/ztm_value.c` (scalars through zufast) and `src/ztm_parse.c` (grammar, table model as a node tree plus a (parent, key) hash, limits); its output, `ztm_doc`, is what the build phase will walk. `ztm_tokens()` stays as an internal entry for lexer tests. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-mutation-check` (40 guards), `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: Stage 4, the build phase and `toml_parse()`.
+**2026-10-08: Stages 0–3 merged (#11, #14, #15, #16); Stage 4 (the build phase) in review on `stage-4-build`.** `toml_validate()`, `toml_parse()` and `toml_bigint()` are exported; every toml-test case of TOML 1.0.0 and 1.1.0 passes in both directions, valid documents parsing to their expected values (D17: 1.1.0 is the default). The check phase is `src/ztm_lex.c`, `src/ztm_value.c` and `src/ztm_parse.c`, R-free; its output, the node tree `ztm_doc`, is walked by `src/ztm_build.c` (R values, the lattice). Local date-times reach the session's zone in `R/parse.R`; data frames are built in `R/data-frame.R`. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-mutation-check` (40 check-phase guards), `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: Stage 5, the emitter.
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 
@@ -70,7 +70,7 @@ Run `tools/check-symbols` on an `R CMD INSTALL` build, not a `load_all()` one (`
 Planned layout, from design §4 and §13. Nothing under `src/` beyond the template exists yet.
 
 ```text
-R/            parse.R, read.R, validate.R, emit.R, write.R, classes.R (toml_bigint),
+R/            parse.R, data-frame.R, read.R, validate.R, emit.R, write.R, classes.R (toml_bigint),
               conditions.R, args.R, info.R, zu_source.R (copied verbatim from zuxml;
               edit there), zutoml-package.R
 src/          init.c                      registration only

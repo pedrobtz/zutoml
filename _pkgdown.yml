@@ -11,7 +11,11 @@ development:
 reference:
   - title: Read TOML
     contents:
+      - toml_parse
       - toml_validate
+  - title: Values
+    contents:
+      - toml_bigint
   - title: Errors
     contents:
       - zutoml-conditions

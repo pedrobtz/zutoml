@@ -156,11 +156,39 @@ dt_parts <- function(value) {
   )
 }
 
-# "keep" text: RFC 3339 with an upper-case T and Z (design section 6.1).
+# "keep" text: canonical RFC 3339 (design section 6.1), as zufast writes
+# it: an upper-case T, seconds always present, Z for a zero offset, and the
+# fraction in the shortest of 0, 3, 6 or 9 digits that holds its
+# nanoseconds exactly (digits past nine truncated).
+canonical_frac <- function(frac) {
+  if (!nzchar(frac)) {
+    return("")
+  }
+  d <- substr(paste0(sub("^\\.", "", frac), "000000000"), 1L, 9L)
+  if (d == "000000000") {
+    return("")
+  }
+  if (endsWith(d, "000000")) {
+    return(paste0(".", substr(d, 1L, 3L)))
+  }
+  if (endsWith(d, "000")) {
+    return(paste0(".", substr(d, 1L, 6L)))
+  }
+  paste0(".", d)
+}
+
 toml_test_dt_text <- function(value) {
   p <- dt_parts(value)
-  off <- if (p$offset %in% c("z", "Z")) "Z" else p$offset
-  sprintf("%sT%02d:%02d:%02d%s%s", p$date, p$h, p$m, p$s, p$frac, off)
+  off <- if (p$offset %in% c("z", "Z", "+00:00", "-00:00")) "Z" else p$offset
+  sprintf(
+    "%sT%02d:%02d:%02d%s%s",
+    p$date,
+    p$h,
+    p$m,
+    p$s,
+    canonical_frac(p$frac),
+    off
+  )
 }
 
 # Fractional seconds, truncated to microseconds (design section 6.1).
@@ -206,8 +234,8 @@ toml_test_time <- function(value, datetimes, local_time) {
     stop("not a toml-test local time: ", value)
   }
   s <- if (nzchar(m[[4]])) m[[4]] else "00"
-  if (local_time == "character") {
-    return(sprintf("%s:%s:%s%s", m[[2]], m[[3]], s, m[[5]]))
+  if (datetimes == "keep" || local_time == "character") {
+    return(sprintf("%s:%s:%s%s", m[[2]], m[[3]], s, canonical_frac(m[[5]])))
   }
   secs <- as.integer(m[[2]]) *
     3600 +
@@ -220,7 +248,9 @@ toml_test_time <- function(value, datetimes, local_time) {
 # ---- comparing a parsed value with the suite's expectation -----------------
 #
 # Returns NULL when `actual` matches `expected`, or a string naming the first
-# difference and its key path. Exact everywhere except doubles: R's parser
+# difference and its key path. Tables are compared key by key, in any order:
+# JSON objects have none, and the suite writes its keys sorted; definition
+# order is the package's own tests' business. Exact everywhere except doubles: R's parser
 # does not round every decimal literal correctly on every platform (macOS
 # arm64), so a float expectation built with as.numeric() may be one ulp off
 # zufast's correctly rounded value. Signs of zero and NaN are exact.
@@ -233,6 +263,26 @@ toml_test_diff <- function(actual, expected, path = "") {
       paste(class(actual), collapse = "/"),
       paste(class(expected), collapse = "/")
     ))
+  }
+  if (is.list(actual) && !is.null(names(expected))) {
+    if (
+      !setequal(names(actual), names(expected)) || anyDuplicated(names(actual))
+    ) {
+      return(sprintf(
+        "%s: names %s, expected %s",
+        at,
+        deparse1(names(actual)),
+        deparse1(names(expected))
+      ))
+    }
+    for (nm in names(expected)) {
+      sub <- if (nzchar(path)) paste0(path, ".", nm) else nm
+      d <- toml_test_diff(actual[[nm]], expected[[nm]], sub)
+      if (!is.null(d)) {
+        return(d)
+      }
+    }
+    return(NULL)
   }
   if (is.list(actual)) {
     if (!identical(names(actual), names(expected))) {
@@ -335,3 +385,14 @@ expect_toml_test_value <- function(actual, expected, case) {
 
 # A tagged scalar, for hand-written expectations.
 tj <- function(type, value) list(type = type, value = value)
+
+# The valid toml-test cases R cannot hold (design section 6.4): each has a
+# string or key with U+0000, so toml_validate() is TRUE and toml_parse()
+# raises zutoml_unrepresentable. These are the only cases where the two
+# disagree; test-conformance.R checks both directions of that claim.
+toml_test_unrepresentable <- c(
+  "valid/key/quoted-unicode",
+  "valid/string/hex-escape",
+  "valid/string/quoted-unicode",
+  "valid/string/unicode-escape"
+)

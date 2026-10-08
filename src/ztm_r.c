@@ -2,12 +2,14 @@
  * list R turns into a classed condition (R/conditions.R, design D16). */
 #define R_NO_REMAP
 #include <math.h>
+#include <string.h>
 #include <R.h>
 #include <Rinternals.h>
 
 #include <zufast/datetime.h>
 #include <zufast/number.h>
 
+#include "ztm_build.h"
 #include "ztm_check.h"
 #include "ztm_r.h"
 
@@ -212,4 +214,38 @@ SEXP zutoml_check(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_
     if (ztm_parse(RAW(x), (size_t) XLENGTH(x), &opt, &doc, &fault) != ZTM_OK)
         return ztm_fault_to_r(&fault);
     return R_NilValue;
+}
+
+/* zutoml_parse(x, version, max_size, max_depth, max_items, max_string,
+ * simplify, big_integers, datetimes, local_time): toml_parse(). A list of
+ * `value`, `fault` (NULL or the fault) and `has_local`. */
+SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
+                  SEXP max_string, SEXP simplify, SEXP big_integers, SEXP datetimes,
+                  SEXP local_time)
+{
+    ztm_opts opt;
+    ztm_fault fault;
+    ztm_doc doc;
+    static const char *names[] = {"value", "fault", "has_local"};
+    ztm_opts_from_r(&opt, version, max_size, max_depth, max_items, max_string);
+    SEXP out = PROTECT(mk_named_list(3, names));
+    if (ztm_parse(RAW(x), (size_t) XLENGTH(x), &opt, &doc, &fault) != ZTM_OK) {
+        SET_VECTOR_ELT(out, 1, ztm_fault_to_r(&fault));
+        UNPROTECT(1);
+        return out;
+    }
+    ztm_builder b;
+    memset(&b, 0, sizeof b);
+    b.doc = &doc;
+    b.simplify = Rf_asLogical(simplify) == TRUE;
+    b.big_integers = Rf_asInteger(big_integers);
+    b.datetimes = Rf_asInteger(datetimes);
+    b.local_time = Rf_asInteger(local_time);
+    SEXP value = ztm_build(&b);
+    SET_VECTOR_ELT(out, 0, value);
+    if (b.fault.status != ZTM_OK)
+        SET_VECTOR_ELT(out, 1, ztm_fault_to_r(&b.fault));
+    SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(b.has_local));
+    UNPROTECT(1);
+    return out;
 }

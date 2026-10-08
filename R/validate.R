@@ -1,6 +1,6 @@
 #' Check that a document is valid TOML
 #'
-#' Runs the whole check phase of `toml_parse()` (the lexer, the grammar, the
+#' Runs the whole check phase of [toml_parse()] (the lexer, the grammar, the
 #' rules for defining tables and keys, every value, and the limits) without
 #' building any R value. It is exactly the check `toml_parse()` makes, with
 #' the same limits: the two disagree only where a document is valid TOML
@@ -12,7 +12,8 @@
 #'   `"1.0.0"`, which refuses the forms 1.1.0 added (`\e` and `\xHH` escapes,
 #'   times without seconds, newlines and a trailing comma in inline tables).
 #' @param max_size The largest document accepted, in bytes, or `Inf`.
-#' @param max_depth The deepest nesting of tables and arrays, counting both.
+#' @param max_depth The deepest nesting of tables and arrays, counting both;
+#'   at most 1023.
 #' @param max_items The most keys plus array elements, or `Inf`.
 #' @param max_string The longest string or key, in decoded bytes, or `Inf`.
 #' @param error If `FALSE` (the default), return `FALSE` for a document that
@@ -42,16 +43,14 @@ toml_validate <- function(
   max_string = 2^31 - 1,
   error = FALSE
 ) {
-  if (!is.logical(error) || length(error) != 1L || is.na(error)) {
-    ztm_invalid_argument("error", "`error` must be TRUE or FALSE.")
-  }
+  ztm_check_flag(error, "error")
   bytes <- ztm_input_bytes(x)
   fault <- .Call(
     zutoml_check,
     bytes,
     ztm_check_version(version),
     ztm_check_limit(max_size, "max_size"),
-    ztm_check_limit(max_depth, "max_depth", allow_inf = FALSE),
+    ztm_check_depth(max_depth),
     ztm_check_limit(max_items, "max_items"),
     ztm_check_limit(max_string, "max_string")
   )

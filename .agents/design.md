@@ -205,8 +205,8 @@ Notes, by row:
 - **Strings.** Escapes are decoded, a multi-line string's first newline is trimmed and its line-ending backslash joins lines, as the spec says. A string holding U+0000 is `zutoml_unrepresentable`, since R cannot hold it.
 - **Integers.** An `integer` when within R's range (`-2147483648` is a `double`, since as an `integer` it would be `NA`: the `zujson` rule), a `double` up to 2^53, then `big_integers` decides: `"bigint"` (the default) gives a `toml_bigint` holding the canonical decimal; `"double"` the nearest double; `"error"` refuses with `zutoml_unrepresentable`. TOML integers are 64-bit signed, so a value outside that range is `zutoml_parse_error` whatever the option. `zuyaml` and `zucbor` make the same choice: never silently lose integer precision.
 - **Floats.** `zuf_parse_f64()`, correctly rounded on every platform. `-0.0` is kept.
-- **Offset date-time.** The offset is applied and the instant returned in UTC; the written offset is not kept (a documented loss, §7.4). `datetimes = "keep"` returns the text instead, normalised to RFC 3339 with `T`.
-- **Local date-time.** A wall-clock time with no zone. R's convention for that is a `POSIXct` with an empty `tzone`, which prints and computes in the session's zone; it is the same instant only within one session's zone, and §7.4 says so. `"keep"` returns the text.
+- **Offset date-time.** The offset is applied and the instant returned in UTC; the written offset is not kept (a documented loss, §7.4). `datetimes = "keep"` returns the text instead, in canonical RFC 3339 as `zuf_format_datetime()` writes it: `T`, seconds always present, `Z` for a zero offset (`+00:00` and `-00:00` included), and the fraction in the shortest of 0, 3, 6 or 9 digits that holds its nanoseconds (Stage 4).
+- **Local date-time.** A wall-clock time with no zone. R has no C API for the session's time zone, so the build phase writes the wall-clock seconds as if UTC with `tzone = "<local>"`, and `toml_parse()` moves them into the session's zone in R (`rapply()` over the result, only when the document had one). A wall-clock time that does not exist in the session's zone (a DST gap) is whatever `as.POSIXct()` makes of it. R's convention for that is a `POSIXct` with an empty `tzone`, which prints and computes in the session's zone; it is the same instant only within one session's zone, and §7.4 says so. `"keep"` returns the text.
 - **Local time.** R has no time-of-day class. The default is the text as written, normalised to `HH:MM:SS[.fraction]`; `"difftime"` gives seconds since midnight in `units = "secs"`.
 - **Fractional seconds.** TOML allows any precision and says extra precision "must be truncated, not rounded". zutoml reads nine digits (nanoseconds), truncating the rest, keeps microseconds in a `POSIXct`, and nanoseconds in `"keep"` mode. (The RFC said more than nine digits was a parse error "as `toml-test` expects"; toml-test v2.2.0 has no such case and the spec says otherwise. Corrected at Stage 2.)
 
@@ -230,7 +230,7 @@ all strings                                   -> character
 all booleans                                  -> logical
 all integers that fit                         -> integer
 integers and floats                           -> double
-integer-valued numbers with a toml_bigint     -> toml_bigint
+integers, at least one a toml_bigint          -> toml_bigint
 all local dates                               -> Date
 all date-times of one kind                    -> POSIXct
 anything else (a mixture of kinds, a nested
@@ -243,7 +243,9 @@ one element that simplifies                   -> marked I()
 - An empty array is `logical(0)`, as in the siblings, so an empty TOML array and an empty R vector round-trip.
 - A one-element array that simplifies is marked `I()`, so that `toml_emit()` writes it back as an array: the `zucbor` rule that makes `toml_emit(toml_parse(x))` reproduce `x`.
 
-`simplify = "none"` makes every array a `list`. `data_frame = TRUE` turns an array of tables whose elements all parse to named lists into a data frame, columns in first-seen key order, missing keys `NA`, each column through the lattice; `zujson`'s rules, with `zucbor`'s `max_cells` guard against rows that share no keys.
+- A `toml_bigint` joins only integers: `[1.5, 9007199254740993]` is a list, since turning a float into decimal text would change its type (amended at Stage 4; the RFC said "integer-valued numbers").
+
+`simplify = "none"` makes every array a `list`. `data_frame = TRUE` turns an array whose elements are all tables into a data frame, bottom-up, columns in first-seen key order, missing keys `NA`, each column through the lattice (integers and floats widen; a column whose cells share no kind, or holds arrays, is a list column); `zujson`'s rules, with `zujson`'s cell budget against rows that share no keys: more than `getOption("zutoml.max_df_cells", 1e7)` cells raises `zutoml_limit_error` with `limit = "zutoml.max_df_cells"` and `kind = "df_cell_limit"` (the RFC credited this guard to `zucbor` as `max_cells`; it is `zujson`'s, as an option).
 
 ### 6.4 Valid TOML that R cannot hold
 
@@ -396,7 +398,7 @@ Threat model: a configuration file is usually trusted, but `toml_read()` on a UR
 | Limit | Default | Where |
 |---|---|---|
 | `max_size` | 64 MiB | before parsing; while reading a connection |
-| `max_depth` | 128 | arrays and tables, counting both |
+| `max_depth` | 128 | arrays and tables, counting both; at most 1023 (`ZTM_MAX_DEPTH_CAP`), since the build phase recurses once per level (`zucbor`'s cap, for the same reason) |
 | `max_items` | 1e6 | keys plus array elements |
 | `max_string` | `2^31 - 1` | one string's decoded length, in bytes |
 

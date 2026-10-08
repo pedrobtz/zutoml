@@ -11,6 +11,9 @@ set -eu
 CC=${CC:-cc}
 ZINC=$(Rscript -e 'cat(system.file("include", package = "zufast"))')
 [ -n "$ZINC" ] || { echo "run-mutation-check: zufast is not installed" >&2; exit 2; }
+# The R-free check phase. The build phase (ztm_build.c) is R code; its
+# guards are exercised through R by test-parse.R.
+CHECK_SRC="src/ztm_lex.c src/ztm_parse.c src/ztm_value.c"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -65,7 +68,7 @@ key_value_equals|a , 1|$L|unexpected_token
 "
 
 # Every marker has a case, every case a marker.
-grep -ho 'GUARD: [a-z0-9_]*' src/ztm_*.c | sed 's/GUARD: //' | sort > "$WORK/markers"
+grep -ho 'GUARD: [a-z0-9_]*' $CHECK_SRC | sed 's/GUARD: //' | sort > "$WORK/markers"
 printf '%s\n' "$cases" | awk -F'|' 'NF {print $1}' | sort > "$WORK/cased"
 if ! cmp -s "$WORK/markers" "$WORK/cased"; then
   echo "FAIL: guard markers and cases differ (< marker only, > case only):" >&2
@@ -83,7 +86,7 @@ printf '%s\n' "$cases" | while IFS='|' read -r guard doc opts want; do
     echo 1 > "$WORK/failed"
     continue
   fi
-  file=$(grep -l "GUARD: $guard \*/" src/ztm_*.c)
+  file=$(grep -l "GUARD: $guard \*/" $CHECK_SRC)
   n=$(grep -c "GUARD: $guard \*/" "$file")
   if [ "$n" != 1 ]; then
     echo "FAIL: $guard: found $n markers in $file, expected 1" >&2

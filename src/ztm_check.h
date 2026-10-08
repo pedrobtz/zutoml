@@ -28,6 +28,10 @@ void *ztm_scratch(size_t n, size_t size);
 /* Interrupts are polled once per this many tokens (design section 12). */
 #define ZTM_INTERRUPT_EVERY 65536u
 
+/* The largest max_depth accepted: the build phase recurses once per level
+ * (design section 12). zucbor's cap, for the same reason. */
+#define ZTM_MAX_DEPTH_CAP 1023
+
 /* ---- statuses ------------------------------------------------------------
  *
  * One enumerator per rule the check phase enforces. R receives the name
@@ -67,6 +71,11 @@ typedef enum {
     ZTM_ERR_STRING_LIMIT,
     ZTM_ERR_DEPTH_LIMIT,
     ZTM_ERR_ITEM_LIMIT,
+    /* valid TOML R cannot hold (design section 6.4): the build phase's */
+    ZTM_ERR_UNREPRESENTABLE_NUL,          /* a string or key holding U+0000 */
+    ZTM_ERR_UNREPRESENTABLE_LENGTH,       /* longer than an R string */
+    ZTM_ERR_UNREPRESENTABLE_BIG_INTEGER,  /* beyond 2^53, big_integers = "error" */
+    ZTM_ERR_UNREPRESENTABLE_FLOAT,        /* beyond a double's range */
     ZTM_STATUS_COUNT
 } ztm_status;
 

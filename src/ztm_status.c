@@ -25,6 +25,10 @@ static const char *const status_names[ZTM_STATUS_COUNT] = {
     "string_limit",
     "depth_limit",
     "item_limit",
+    "nul_in_string",
+    "string_too_long",
+    "big_integer",
+    "float_overflow",
 };
 
 const char *ztm_status_name(ztm_status s)

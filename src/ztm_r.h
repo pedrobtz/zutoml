@@ -15,5 +15,8 @@ SEXP zutoml_status_names(void);
 SEXP zutoml_tokens(SEXP x, SEXP version, SEXP max_size, SEXP max_string);
 SEXP zutoml_check(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
                   SEXP max_string);
+SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
+                  SEXP max_string, SEXP simplify, SEXP big_integers, SEXP datetimes,
+                  SEXP local_time);
 
 #endif

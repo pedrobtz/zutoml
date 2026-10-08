@@ -24,7 +24,8 @@ times without seconds, newlines and a trailing comma in inline tables).}
 
 \item{max_size}{The largest document accepted, in bytes, or \code{Inf}.}
 
-\item{max_depth}{The deepest nesting of tables and arrays, counting both.}
+\item{max_depth}{The deepest nesting of tables and arrays, counting both;
+at most 1023.}
 
 \item{max_items}{The most keys plus array elements, or \code{Inf}.}
 
@@ -41,7 +42,7 @@ or with \code{error = TRUE} a condition of class \code{zutoml_parse_error} or
 \code{column}, byte \code{offset} and \code{kind} of the fault.
 }
 \description{
-Runs the whole check phase of \code{toml_parse()} (the lexer, the grammar, the
+Runs the whole check phase of \code{\link[=toml_parse]{toml_parse()}} (the lexer, the grammar, the
 rules for defining tables and keys, every value, and the limits) without
 building any R value. It is exactly the check \code{toml_parse()} makes, with
 the same limits: the two disagree only where a document is valid TOML

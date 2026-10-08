@@ -5,8 +5,7 @@
 # every case must pass.
 
 test_that("every valid toml-test case validates", {
-  skip_until_exported("toml_validate")
-  validate <- getExportedValue("zutoml", "toml_validate")
+  validate <- toml_validate
   for (version in c("1.0.0", "1.1.0")) {
     cases <- toml_test_cases("valid", version)
     for (i in seq_len(nrow(cases))) {
@@ -19,8 +18,7 @@ test_that("every valid toml-test case validates", {
 })
 
 test_that("every invalid toml-test case is refused with a position", {
-  skip_until_exported("toml_validate")
-  validate <- getExportedValue("zutoml", "toml_validate")
+  validate <- toml_validate
   for (version in c("1.0.0", "1.1.0")) {
     cases <- toml_test_cases("invalid", version)
     for (i in seq_len(nrow(cases))) {
@@ -38,22 +36,32 @@ test_that("every invalid toml-test case is refused with a position", {
 })
 
 test_that("every valid toml-test case parses to its expected value", {
-  skip_until_exported("toml_parse")
   skip_if_not_installed("jsonlite")
-  parse <- getExportedValue("zutoml", "toml_parse")
   for (version in c("1.0.0", "1.1.0")) {
     cases <- toml_test_cases("valid", version)
     for (i in seq_len(nrow(cases))) {
       label <- paste(version, cases$name[[i]])
       bytes <- toml_test_bytes(cases$toml[[i]])
+      if (cases$name[[i]] %in% toml_test_unrepresentable) {
+        # Valid TOML R cannot hold (design section 6.4).
+        err <- tryCatch(toml_parse(bytes, version = version), error = identity)
+        expect_s3_class(err, "zutoml_unrepresentable")
+        expect_identical(err$kind, "nul_in_string", label = label)
+        next
+      }
       expected <- tagged_json_read(cases$json[[i]])
       expect_toml_test_value(
-        parse(bytes, version = version, simplify = "none", datetimes = "keep"),
+        toml_parse(
+          bytes,
+          version = version,
+          simplify = "none",
+          datetimes = "keep"
+        ),
         tagged_json_to_r(expected, datetimes = "keep"),
         label
       )
       expect_toml_test_value(
-        parse(
+        toml_parse(
           bytes,
           version = version,
           simplify = "none",
@@ -67,5 +75,25 @@ test_that("every valid toml-test case parses to its expected value", {
         label
       )
     }
+  }
+})
+
+test_that("toml_validate() and toml_parse() disagree only on the 6.4 cases", {
+  for (version in c("1.0.0", "1.1.0")) {
+    cases <- toml_test_cases("valid", version)
+    refused <- character()
+    for (i in seq_len(nrow(cases))) {
+      bytes <- toml_test_bytes(cases$toml[[i]])
+      expect_true(toml_validate(bytes, version = version))
+      ok <- tryCatch(
+        {
+          toml_parse(bytes, version = version)
+          TRUE
+        },
+        zutoml_unrepresentable = function(e) FALSE
+      )
+      if (!ok) refused <- c(refused, cases$name[[i]])
+    }
+    expect_setequal(refused, intersect(toml_test_unrepresentable, cases$name))
   }
 })

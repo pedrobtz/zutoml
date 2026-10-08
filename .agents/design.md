@@ -138,6 +138,11 @@ toml_validate(x, ..., error = FALSE)   # TRUE/FALSE, or the condition
 toml_emit(x, ...)              # named list -> string
 toml_write(x, file, ...)       # named list -> file
 
+# marking how one value is written (D19)
+toml_inline(x)                 # a list as an inline table / array of inline tables
+toml_literal(x)                # strings as literal strings
+toml_multiline(x)              # strings as multi-line basic strings
+
 # values
 toml_bigint(x)                 # an integer outside what a double holds exactly,
                                # as a character vector of class toml_bigint
@@ -145,7 +150,7 @@ zutoml_info()                  # version, zufast version compiled against,
                                # toml-test version pinned, build flags
 ```
 
-Six functions, one value class and the info function. The `parse`/`read` and `emit`/`write` split is `zuyaml`'s; `toml_validate()` is `zucbor`'s `cbor_validate()`, the check phase alone, with `error = TRUE` raising the classed condition so a caller learns why.
+Seven functions, three emit markers, one value class and the info function (the markers and `positions =` were added at Stage 7b, D19). The `parse`/`read` and `emit`/`write` split is `zuyaml`'s; `toml_validate()` is `zucbor`'s `cbor_validate()`, the check phase alone, with `error = TRUE` raising the classed condition so a caller learns why.
 
 ### Parse arguments
 
@@ -158,6 +163,7 @@ toml_parse(
   big_integers = c("bigint", "double", "error"),
   datetimes    = c("convert", "keep"),        # §6.1
   local_time   = c("character", "difftime"),
+  positions    = FALSE,                       # D19: where each key is
   max_size     = 64 * 1024^2,
   max_depth    = 128L,
   max_items    = 1e6,
@@ -298,6 +304,17 @@ Notes, by row:
 The top-level value must be a named list: TOML has no document that is a bare value, so `toml_emit(1:3)` is `zutoml_invalid_argument`. Names are bare keys when they match `[A-Za-z0-9_-]+` and quoted basic keys otherwise; `""` is a quoted empty key. An unnamed list of named lists becomes `[[name]]` tables only under a key, so a top-level unnamed list is also refused. `NULL` elements are omitted with `na = "omit"` and refused otherwise, like `NA`.
 
 The emitter writes, in order: every scalar and array value of the top table; then each nested table as a `[header]` with its own scalars, recursively, depth-first in the list's order; arrays of tables as `[[header]]` blocks. A nested list with at most `inline` keys and no nested list of its own is written inline instead, which is how a short `{ x = 1, y = 2 }` stays on one line.
+
+### 7.2a Markers (D19)
+
+`toml_inline()`, `toml_literal()` and `toml_multiline()` add a class that tells the emitter how to write one value, as `I()` already does for a vector of one. They change the form, never the value: `toml_parse()` reads the text back as the unmarked value.
+
+| Marked R value | TOML |
+|---|---|
+| `toml_inline()` named list | an inline table, wherever it sits, nested lists inline too |
+| `toml_inline()` unnamed list of named lists | an array of inline tables, not `[[headers]]` |
+| `toml_literal()` strings | `'...'`; `'''...'''` when the text holds a quote or a newline; refused (`zutoml_invalid_argument`) when no literal form holds it: a control character other than tab and newline, or `'''` |
+| `toml_multiline()` strings | `"""..."""`, even without a newline |
 
 ### 7.3 What cannot be emitted
 
@@ -516,6 +533,7 @@ The emit benchmark uses the value parsed with `datetimes = "keep"`, since `zuyam
 | D14 | Info function | `zutoml_info()`, the package name (R1) |
 | D15 | Base prefixes and underscores | stripped by zutoml's lexer before zufast sees the digits (*verified 2026-10-08*) |
 | D16 | Where C raises | never; statuses by enumerator name, R raises (`zucbor`'s convention) |
+| D19 | Positions and markers (Stage 7b) | `toml_parse(positions = TRUE)` attaches `"toml_positions"`: path (TOML key syntax, `[i]` 1-based for array elements), type (toml-test's names), line, column, offset for every key and array element, from positions the check phase already records; `toml_inline()`, `toml_literal()`, `toml_multiline()` mark how one value is written (§7.2a). Taken from BurntSushi/toml's metadata and from tomli-w, j-toml and tomlkit's per-value control; added before 0.1.0 because each is small and none needs a dependency |
 | D18 | Emitter choices (§18 Q1–Q3) | `inline = 0` by default; a `difftime` other than seconds within a day is refused, naming `as.numeric()`; a `POSIXct` in any zone but none is written in UTC with `Z` (decided at Stage 5, as recommended) |
 | D17 | TOML 1.1.0 | read by default; `version = c("1.1.0", "1.0.0")` on every reading function, `"1.0.0"` strict; the emitter writes 1.0-compatible text whatever the version (decided at Stage 1, 2026-10-08) |
 

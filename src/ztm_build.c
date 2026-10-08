@@ -9,6 +9,7 @@
  * interrupt) leak nothing. Recursion is bounded by max_depth, which R caps
  * at ZTM_MAX_DEPTH_CAP. */
 #include <limits.h>
+#include <stdio.h>
 #include <string.h>
 
 #define R_NO_REMAP
@@ -421,4 +422,155 @@ SEXP ztm_build(ztm_builder *b)
     memset(&b->fault, 0, sizeof b->fault);
     b->has_local = 0;
     return build_node(b, 0);
+}
+
+/* ---- positions ------------------------------------------------------------
+ *
+ * toml_parse(positions = TRUE): one row per key and array element, in
+ * document order, with its path in TOML key syntax (bare keys as they are,
+ * others quoted, array elements as [i], 1-based), its type in toml-test's
+ * names, and where it was defined. */
+
+typedef struct {
+    char *buf;
+    size_t len, cap;
+} pathbuf;
+
+static void pb_put(pathbuf *p, const char *s, size_t n)
+{
+    if (p->len + n > p->cap) {
+        size_t cap = p->cap ? p->cap * 2 : 256;
+        while (cap < p->len + n)
+            cap *= 2;
+        char *grown = R_alloc(cap, 1);
+        if (p->len)
+            memcpy(grown, p->buf, p->len);
+        p->buf = grown;
+        p->cap = cap;
+    }
+    memcpy(p->buf + p->len, s, n);
+    p->len += n;
+}
+
+static int bare_key(const char *s, size_t n)
+{
+    if (n == 0)
+        return 0;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char) s[i];
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+              c == '_' || c == '-'))
+            return 0;
+    }
+    return 1;
+}
+
+static void pb_key(pathbuf *p, const char *s, size_t n)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    if (bare_key(s, n)) {
+        pb_put(p, s, n);
+        return;
+    }
+    pb_put(p, "\"", 1);
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char) s[i];
+        if (c == '"' || c == '\\') {
+            char esc[2] = {'\\', (char) c};
+            pb_put(p, esc, 2);
+        } else if (c < 0x20 || c == 0x7F) {
+            char u[6] = {'\\', 'u', '0', '0', hex[c >> 4], hex[c & 15]};
+            pb_put(p, u, 6);
+        } else {
+            pb_put(p, (const char *) &s[i], 1);
+        }
+    }
+    pb_put(p, "\"", 1);
+}
+
+static const char *node_type(const ztm_node *nd)
+{
+    switch ((ztm_node_kind) nd->kind) {
+    case ZTM_NODE_TABLE:
+        return nd->state == ZTM_TABLE_INLINE ? "inline_table" : "table";
+    case ZTM_NODE_AOT:
+        return "array_of_tables";
+    case ZTM_NODE_ARRAY:
+        return "array";
+    default:
+        break;
+    }
+    switch ((ztm_tok_type) nd->value.type) {
+    case ZTM_TOK_INTEGER: return "integer";
+    case ZTM_TOK_FLOAT: return "float";
+    case ZTM_TOK_BOOL: return "bool";
+    case ZTM_TOK_DATETIME: return "datetime";
+    case ZTM_TOK_LOCAL_DATETIME: return "datetime-local";
+    case ZTM_TOK_LOCAL_DATE: return "date-local";
+    case ZTM_TOK_LOCAL_TIME: return "time-local";
+    default: return "string";
+    }
+}
+
+typedef struct {
+    const ztm_doc *doc;
+    pathbuf path;
+    SEXP paths, types;
+    double *line, *column, *offset;
+    R_xlen_t row;
+} pos_walk;
+
+static void walk_positions(pos_walk *w, uint32_t idx)
+{
+    R_CheckStack();
+    const ztm_node *nd = &w->doc->nodes[idx];
+    uint32_t i = 0;
+    for (uint32_t c = nd->first; c != ZTM_NONE; c = w->doc->nodes[c].next, i++) {
+        const ztm_node *cn = &w->doc->nodes[c];
+        size_t mark = w->path.len;
+        if (cn->key) {
+            if (mark)
+                pb_put(&w->path, ".", 1);
+            pb_key(&w->path, cn->key, cn->keylen);
+        } else {
+            char tmp[32];
+            int n = snprintf(tmp, sizeof tmp, "[%u]", (unsigned) i + 1u);
+            pb_put(&w->path, tmp, (size_t) n);
+        }
+        SET_STRING_ELT(w->paths, w->row, Rf_mkCharLenCE(w->path.buf, (int) w->path.len, CE_UTF8));
+        SET_STRING_ELT(w->types, w->row, Rf_mkChar(node_type(cn)));
+        w->line[w->row] = (double) cn->line;
+        w->column[w->row] = (double) cn->column;
+        w->offset[w->row] = (double) cn->offset;
+        w->row++;
+        walk_positions(w, c);
+        w->path.len = mark;
+    }
+}
+
+SEXP ztm_positions(const ztm_doc *doc)
+{
+    static const char *names[] = {"path", "type", "line", "column", "offset"};
+    R_xlen_t n = (R_xlen_t) doc->n - 1;
+    SEXP out = PROTECT(Rf_allocVector(VECSXP, 5));
+    SEXP nm = PROTECT(Rf_allocVector(STRSXP, 5));
+    for (int k = 0; k < 5; k++)
+        SET_STRING_ELT(nm, k, Rf_mkChar(names[k]));
+    Rf_setAttrib(out, R_NamesSymbol, nm);
+    pos_walk w;
+    memset(&w, 0, sizeof w);
+    w.doc = doc;
+    w.paths = Rf_allocVector(STRSXP, n);
+    SET_VECTOR_ELT(out, 0, w.paths);
+    w.types = Rf_allocVector(STRSXP, n);
+    SET_VECTOR_ELT(out, 1, w.types);
+    double **cols[3] = {&w.line, &w.column, &w.offset};
+    for (int k = 0; k < 3; k++) {
+        SEXP v = Rf_allocVector(REALSXP, n);
+        SET_VECTOR_ELT(out, 2 + k, v);
+        *cols[k] = REAL(v);
+    }
+    walk_positions(&w, 0);
+    UNPROTECT(2);
+    return out;
 }

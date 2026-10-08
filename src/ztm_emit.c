@@ -123,7 +123,8 @@ static int has_class(SEXP x, const char *cls) { return Rf_inherits(x, cls); }
 static int known_atomic_classes(SEXP x)
 {
     static const char *known[] = {"AsIs", "factor", "Date", "POSIXct", "POSIXt", "difftime",
-                                  "toml_bigint", "ztm_wallclock", NULL};
+                                  "toml_bigint", "ztm_wallclock", "toml_literal",
+                                  "toml_multiline", NULL};
     SEXP cls = Rf_getAttrib(x, R_ClassSymbol);
     for (R_xlen_t i = 0; i < Rf_xlength(cls); i++) {
         const char *c = CHAR(STRING_ELT(cls, i));
@@ -155,7 +156,8 @@ static int is_plain_list(SEXP x)
         return 0;
     SEXP cls = Rf_getAttrib(x, R_ClassSymbol);
     for (R_xlen_t i = 0; i < Rf_xlength(cls); i++)
-        if (strcmp(CHAR(STRING_ELT(cls, i)), "AsIs") != 0)
+        if (strcmp(CHAR(STRING_ELT(cls, i)), "AsIs") != 0 &&
+            strcmp(CHAR(STRING_ELT(cls, i)), "toml_inline") != 0)
             return 0;
     return 1;
 }
@@ -172,7 +174,8 @@ static int is_aot(SEXP x)
 {
     if (is_df(x))
         return df_nrow(x) > 0;
-    if (!is_plain_list(x) || is_table(x) || XLENGTH(x) == 0 || has_class(x, "AsIs"))
+    if (!is_plain_list(x) || is_table(x) || XLENGTH(x) == 0 || has_class(x, "AsIs") ||
+        has_class(x, "toml_inline"))
         return 0;
     for (R_xlen_t i = 0; i < XLENGTH(x); i++)
         if (!is_table(VECTOR_ELT(x, i)))
@@ -333,15 +336,62 @@ static int put_key(emitter *e, SEXP ch)
     return 1;
 }
 
-/* A string value: literal when asked and possible, multi-line basic for a
- * table's own value that holds a newline, basic otherwise. */
-static int put_string(emitter *e, SEXP ch, int ml_ok)
+enum { MARK_NONE, MARK_LITERAL, MARK_MULTILINE };
+
+/* A literal string for toml_literal(): single-line when it can be (no
+ * quote, no newline), else multi-line, which holds quotes and newlines.
+ * Refused when no literal form holds the text exactly: a control character
+ * other than tab and newline, or a run of three single quotes. */
+static int put_literal_marked(emitter *e, const char *s, size_t n)
+{
+    int quote = 0, nl = 0, bad = 0;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char) s[i];
+        if (c == '\'')
+            quote = 1;
+        else if (c == '\n')
+            nl = 1;
+        else if ((c < 0x20 && c != '\t') || c == 0x7F)
+            bad = 1;
+    }
+    if (!bad && !quote && !nl) {
+        putc_(e, '\'');
+        put(e, s, n);
+        putc_(e, '\'');
+        return 1;
+    }
+    /* Multi-line: no ''' inside, and none formed with the closing delimiter
+     * (a trailing quote run of up to two is fine). */
+    int triple = 0;
+    for (size_t i = 0; i + 2 < n; i++)
+        if (s[i] == '\'' && s[i + 1] == '\'' && s[i + 2] == '\'')
+            triple = 1;
+    if (bad || triple)
+        return fail(e, ZTM_EMIT_INVALID,
+                    "toml_literal(): no literal string holds this text exactly "
+                    "(a control character, or a run of three single quotes)");
+    puts_(e, "'''\n");
+    put(e, s, n);
+    puts_(e, "'''");
+    return 1;
+}
+
+/* A string value: as marked (toml_literal(), toml_multiline()); else
+ * literal when asked and possible, multi-line basic for a table's own value
+ * that holds a newline, basic otherwise. */
+static int put_string(emitter *e, SEXP ch, int ml_ok, int mark)
 {
     const char *s = utf8_of(e, ch);
     if (!s)
         return 0;
     size_t n = strlen(s);
     int has_nl = memchr(s, '\n', n) != NULL;
+    if (mark == MARK_LITERAL)
+        return put_literal_marked(e, s, n);
+    if (mark == MARK_MULTILINE) {
+        put_ml_basic(e, s, n);
+        return 1;
+    }
     if (e->literal) {
         int ok = 1;
         for (size_t i = 0; i < n && ok; i++) {
@@ -493,7 +543,7 @@ static int put_scalar(emitter *e, SEXP x, R_xlen_t i, int ml_ok)
             int code = INTEGER(x)[i];
             if (TYPEOF(levels) != STRSXP || code < 1 || code > XLENGTH(levels))
                 return fail(e, ZTM_EMIT_INVALID, "a factor with a code outside its levels");
-            return put_string(e, STRING_ELT(levels, code - 1), ml_ok);
+            return put_string(e, STRING_ELT(levels, code - 1), ml_ok, MARK_NONE);
         }
         if (has_class(x, "POSIXct") || has_class(x, "Date") || has_class(x, "difftime"))
             return put_time_value(e, x, (double) INTEGER(x)[i]);
@@ -513,7 +563,9 @@ static int put_scalar(emitter *e, SEXP x, R_xlen_t i, int ml_ok)
             puts_(e, CHAR(STRING_ELT(x, i)));
             return 1;
         }
-        return put_string(e, STRING_ELT(x, i), ml_ok);
+        return put_string(e, STRING_ELT(x, i), ml_ok,
+                          has_class(x, "toml_literal") ? MARK_LITERAL
+                          : has_class(x, "toml_multiline") ? MARK_MULTILINE : MARK_NONE);
     default:
         return fail(e, ZTM_EMIT_UNSUPPORTED, NULL);
     }
@@ -743,6 +795,8 @@ static int put_value(emitter *e, SEXP x, int depth, int ml_ok)
  * rather than as `key = value`. */
 static int is_header_kind(emitter *e, SEXP v)
 {
+    if (has_class(v, "toml_inline"))   /* toml_inline(): always a value */
+        return 0;
     if (is_aot(v))
         return 1;
     if (!is_table(v))

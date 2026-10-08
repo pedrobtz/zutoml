@@ -199,6 +199,13 @@ static ztm_status new_node(parser *P, uint32_t parent, ztm_node_kind kind, const
     return ZTM_OK;
 }
 
+static void set_position(ztm_node *nd, const key_part *k)
+{
+    nd->line = k->line;
+    nd->column = k->column;
+    nd->offset = k->offset;
+}
+
 /* ---- keys --------------------------------------------------------------- */
 
 /* Reads a key, simple or dotted, whose first token is in P->tok. On return
@@ -312,6 +319,9 @@ static ztm_status define_header(parser *P, int aot, uint32_t *base)
                                        ? ZTM_ERR_INLINE_TABLE_EXTENDED : ZTM_ERR_TABLE_REDEFINED,
                                 last);
         }
+        /* A table implied by an earlier, deeper header is positioned where
+         * it is defined, which is what a reader looks for. */
+        set_position(&P->nodes[c], last);
         P->nodes[c].state = ZTM_TABLE_EXPLICIT;
         *base = c;
         return ZTM_OK;
@@ -326,6 +336,7 @@ static ztm_status define_header(parser *P, int aot, uint32_t *base)
     uint32_t t;
     s = new_node(P, c, ZTM_NODE_TABLE, NULL, &t);
     if (s) return s;
+    set_position(&P->nodes[t], last);   /* each [[header]] is its table's place */
     P->nodes[t].state = ZTM_TABLE_EXPLICIT;
     *base = t;
     return ZTM_OK;

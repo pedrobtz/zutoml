@@ -219,18 +219,19 @@ SEXP zutoml_check(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_
 }
 
 /* zutoml_parse(x, version, max_size, max_depth, max_items, max_string,
- * simplify, big_integers, datetimes, local_time): toml_parse(). A list of
- * `value`, `fault` (NULL or the fault) and `has_local`. */
+ * simplify, big_integers, datetimes, local_time, positions): toml_parse().
+ * A list of `value`, `fault` (NULL or the fault), `has_local` and
+ * `positions` (NULL unless asked for). */
 SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
                   SEXP max_string, SEXP simplify, SEXP big_integers, SEXP datetimes,
-                  SEXP local_time)
+                  SEXP local_time, SEXP positions)
 {
     ztm_opts opt;
     ztm_fault fault;
     ztm_doc doc;
-    static const char *names[] = {"value", "fault", "has_local"};
+    static const char *names[] = {"value", "fault", "has_local", "positions"};
     ztm_opts_from_r(&opt, version, max_size, max_depth, max_items, max_string);
-    SEXP out = PROTECT(mk_named_list(3, names));
+    SEXP out = PROTECT(mk_named_list(4, names));
     if (ztm_parse(RAW(x), (size_t) XLENGTH(x), &opt, &doc, &fault) != ZTM_OK) {
         SET_VECTOR_ELT(out, 1, ztm_fault_to_r(&fault));
         UNPROTECT(1);
@@ -248,6 +249,8 @@ SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_
     if (b.fault.status != ZTM_OK)
         SET_VECTOR_ELT(out, 1, ztm_fault_to_r(&b.fault));
     SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(b.has_local));
+    if (b.fault.status == ZTM_OK && Rf_asLogical(positions) == TRUE)
+        SET_VECTOR_ELT(out, 3, ztm_positions(&doc));
     UNPROTECT(1);
     return out;
 }

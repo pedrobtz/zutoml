@@ -57,6 +57,17 @@
 #'   `"keep"` returns the date-times as text.
 #' @param local_time `"character"` (the default) returns a local time as its
 #'   text; `"difftime"` as seconds since midnight.
+#' @param positions If `TRUE`, the result carries an attribute
+#'   `"toml_positions"`: a data frame with one row per key and array element,
+#'   in the order of the parsed value, giving its `path` in TOML key syntax
+#'   (`servers[2].ip`, with keys quoted where TOML needs it, and array
+#'   elements numbered from 1), its `type` (`"table"`, `"inline_table"`,
+#'   `"array_of_tables"`, `"array"`, `"string"`, `"integer"`, `"float"`,
+#'   `"bool"`, `"datetime"`, `"datetime-local"`, `"date-local"` or
+#'   `"time-local"`), and the `line`, `column` (1-based, in characters) and
+#'   byte `offset` (0-based) where it is defined: a key's position for a
+#'   keyed value, the `[[header]]` for each table of an array of tables.
+#'   Code that checks a configuration can then say where a value is wrong.
 #'
 #' @return A named list, one element per top-level key.
 #' @seealso [toml_validate()] to check a document without building it;
@@ -85,6 +96,10 @@
 #' x$ports
 #'
 #' toml_parse(doc, data_frame = TRUE)$products
+#'
+#' # Where each value is, for messages about the document:
+#' pos <- attr(toml_parse(doc, positions = TRUE), "toml_positions")
+#' pos[pos$path == "owner.dob", ]
 toml_parse <- function(
   x,
   version = c("1.1.0", "1.0.0"),
@@ -93,6 +108,7 @@ toml_parse <- function(
   big_integers = c("bigint", "double", "error"),
   datetimes = c("convert", "keep"),
   local_time = c("character", "difftime"),
+  positions = FALSE,
   max_size = 64 * 1024^2,
   max_depth = 128L,
   max_items = 1e6,
@@ -101,6 +117,7 @@ toml_parse <- function(
   bytes <- ztm_input_bytes(x)
   simplify <- ztm_check_choice(simplify, c("preserve", "none"), "simplify") ==
     0L
+  positions <- ztm_check_flag(positions, "positions")
   data_frame <- ztm_check_flag(data_frame, "data_frame")
   datetimes <- ztm_check_choice(datetimes, c("convert", "keep"), "datetimes")
   out <- .Call(
@@ -118,7 +135,8 @@ toml_parse <- function(
       "big_integers"
     ),
     datetimes,
-    ztm_check_choice(local_time, c("character", "difftime"), "local_time")
+    ztm_check_choice(local_time, c("character", "difftime"), "local_time"),
+    positions
   )
   if (!is.null(out$fault)) {
     ztm_raise_fault(out$fault)
@@ -129,6 +147,14 @@ toml_parse <- function(
   }
   if (data_frame) {
     value <- ztm_data_frames(value)
+  }
+  if (positions) {
+    pos <- out$positions
+    attr(value, "toml_positions") <- structure(
+      pos,
+      class = "data.frame",
+      row.names = .set_row_names(length(pos$path))
+    )
   }
   value
 }

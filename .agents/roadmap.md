@@ -73,7 +73,8 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 | 6 — Round trip, limits, fuzzing, mutation check | M | 5 | the properties and hostile inputs of §15; sanitizers clean |
 | 7 — Files, connections, documentation, benchmarks | S | 6 | `toml_read()` bounded; vignette; `cran-comments.md`; benchmarks recorded |
 | 7b — Key positions and emit markers | S | 7 | `toml_parse(positions = TRUE)`; `toml_inline()`, `toml_literal()`, `toml_multiline()` |
-| 8 — Release 0.1.0 | S | 7b, and zufast on CRAN | the submission |
+| 7c — Reading part of a document | S | 7b | `toml_parse(select = )` |
+| 8 — Release 0.1.0 | S | 7c, and zufast on CRAN | the submission |
 
 ---
 
@@ -292,7 +293,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 7b — Key positions and emit markers · S
 
-**Status:** in review (branch `stage-7b-positions-markers`).
+**Status:** done 2026-10-08 (#22, closes #21).
 
 **Goal:** the two features from other ecosystems' TOML libraries that no R package offers and that zutoml can add cheaply (design D19): where each key is, for messages that point into the document; and per-value control of how a value is written.
 
@@ -307,6 +308,27 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 - `devtools::check(cran = TRUE)` 0/0/0; CI green on every leg, rchk included.
 
 **What actually happened.** Planned and built in one sitting after Stage 7, at the maintainer's request, from a survey of Python (tomllib, tomli-w, tomlkit), Node (smol-toml, j-toml) and Go (BurntSushi/toml) libraries. The three larger ideas from that survey went to "After 0.1.0" below.
+
+---
+
+## Stage 7c — Reading part of a document · S
+
+**Status:** in review (branch `stage-7c-select`).
+
+**Goal:** read one part of a document (`tool.poetry` of a `pyproject.toml`) without building R values for the rest (design D20).
+
+**Do**
+
+- `toml_parse(x, select = )`, which `toml_read()` passes on: a path string in the positions table's syntax (keys bare, `"basic"` or `'literal'`, dots, `[i]` from 1) or a vector of keys; the check phase over the whole document as before; the build phase from the selected node.
+- `zutoml_missing_key` (with `path` and `found`) for a path the document does not have, decided with the maintainer as an error rather than `NULL`.
+- `positions = TRUE` with `select`: the selected subtree, the selected node first, with absolute paths.
+- Tests: tables, values and elements; quoted keys; keys with dots as a vector; every option on the selected value; a key only found because a table is extended later in the file; an invalid document refused whatever is selected; every malformed path.
+
+**Exit**
+
+- `devtools::check(cran = TRUE)` 0/0/0; CI green on every leg, rchk included.
+
+**What actually happened.** Asked for after Stage 8 was prepared, while it waits on zufast. The check phase cannot be cut short: TOML lets a table be extended anywhere in the file, and a duplicate key on the last line invalidates the whole document; so `select` saves the build phase (most of the time and memory on large files) and the lookup is a walk down the node tree. Quoted keys in a path are decoded by the TOML parser itself, so their escapes mean exactly what TOML says.
 
 ---
 

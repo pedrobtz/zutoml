@@ -32,6 +32,9 @@ Carries \code{path}.}
 name, such as \code{"max_depth"}, and \code{limit_value}.}
 \item{\code{zutoml_io_error}}{A file or connection could not be read or
 written.}
+\item{\code{zutoml_missing_key}}{\code{\link[=toml_parse]{toml_parse()}}'s \code{select} names a path the
+document does not have. Carries \code{path}, the path asked for, and
+\code{found}, the part of it that exists.}
 }
 }
 \examples{

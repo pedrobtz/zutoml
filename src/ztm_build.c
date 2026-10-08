@@ -421,7 +421,7 @@ SEXP ztm_build(ztm_builder *b)
 {
     memset(&b->fault, 0, sizeof b->fault);
     b->has_local = 0;
-    return build_node(b, 0);
+    return build_node(b, b->root);
 }
 
 /* ---- positions ------------------------------------------------------------
@@ -548,10 +548,43 @@ static void walk_positions(pos_walk *w, uint32_t idx)
     }
 }
 
-SEXP ztm_positions(const ztm_doc *doc)
+static R_xlen_t subtree_size(const ztm_doc *doc, uint32_t idx)
+{
+    R_CheckStack();
+    R_xlen_t n = 0;
+    for (uint32_t c = doc->nodes[idx].first; c != ZTM_NONE; c = doc->nodes[c].next)
+        n += 1 + subtree_size(doc, c);
+    return n;
+}
+
+/* The path of node idx from the document's root, in the positions table's
+ * syntax: what select = names, written canonically. */
+static void node_path(const ztm_doc *doc, uint32_t idx, pathbuf *p)
+{
+    if (idx == 0)
+        return;
+    const ztm_node *nd = &doc->nodes[idx];
+    node_path(doc, nd->parent, p);
+    if (nd->key) {
+        if (p->len)
+            pb_put(p, ".", 1);
+        pb_key(p, nd->key, nd->keylen);
+    } else {
+        uint32_t i = 1;
+        for (uint32_t c = doc->nodes[nd->parent].first; c != idx; c = doc->nodes[c].next)
+            i++;
+        char tmp[32];
+        int n = snprintf(tmp, sizeof tmp, "[%u]", (unsigned) i);
+        pb_put(p, tmp, (size_t) n);
+    }
+}
+
+SEXP ztm_positions(const ztm_doc *doc, uint32_t root)
 {
     static const char *names[] = {"path", "type", "line", "column", "offset"};
-    R_xlen_t n = (R_xlen_t) doc->n - 1;
+    /* Below a selected node, the node itself is the first row, so its own
+     * definition can be pointed at too. */
+    R_xlen_t n = subtree_size(doc, root) + (root != 0);
     SEXP out = PROTECT(Rf_allocVector(VECSXP, 5));
     SEXP nm = PROTECT(Rf_allocVector(STRSXP, 5));
     for (int k = 0; k < 5; k++)
@@ -570,7 +603,64 @@ SEXP ztm_positions(const ztm_doc *doc)
         SET_VECTOR_ELT(out, 2 + k, v);
         *cols[k] = REAL(v);
     }
-    walk_positions(&w, 0);
+    if (root != 0) {
+        const ztm_node *nd = &doc->nodes[root];
+        node_path(doc, root, &w.path);
+        SET_STRING_ELT(w.paths, 0, Rf_mkCharLenCE(w.path.buf, (int) w.path.len, CE_UTF8));
+        SET_STRING_ELT(w.types, 0, Rf_mkChar(node_type(nd)));
+        w.line[0] = (double) nd->line;
+        w.column[0] = (double) nd->column;
+        w.offset[0] = (double) nd->offset;
+        w.row = 1;
+    }
+    walk_positions(&w, root);
     UNPROTECT(2);
     return out;
+}
+
+/* ---- select ----------------------------------------------------------------
+ *
+ * toml_parse(select = ): the node at a path of keys (character) and 1-based
+ * array indices (integer), each a length-one vector in the list `steps`.
+ * Returns the node, or ZTM_NONE with *failed set to the 0-based step that
+ * found nothing: a key the table does not have, an index past the array,
+ * or a step of the wrong kind (a key into an array, an index into a table,
+ * either into a value). */
+uint32_t ztm_select(const ztm_doc *doc, SEXP steps, R_xlen_t *failed)
+{
+    uint32_t cur = 0;
+    for (R_xlen_t s = 0; s < XLENGTH(steps); s++) {
+        SEXP step = VECTOR_ELT(steps, s);
+        const ztm_node *nd = &doc->nodes[cur];
+        uint32_t next = ZTM_NONE;
+        if (TYPEOF(step) == STRSXP) {
+            const char *key = Rf_translateCharUTF8(STRING_ELT(step, 0));
+            size_t n = strlen(key);
+            if (nd->kind == ZTM_NODE_TABLE)
+                for (uint32_t c = nd->first; c != ZTM_NONE; c = doc->nodes[c].next) {
+                    const ztm_node *cn = &doc->nodes[c];
+                    if (cn->keylen == n && !cn->key_has_nul && memcmp(cn->key, key, n) == 0) {
+                        next = c;
+                        break;
+                    }
+                }
+        } else {
+            double want = Rf_asReal(step);
+            if ((nd->kind == ZTM_NODE_ARRAY || nd->kind == ZTM_NODE_AOT) && want >= 1 &&
+                want <= nd->nchildren) {
+                uint32_t i = 1;
+                for (uint32_t c = nd->first; c != ZTM_NONE; c = doc->nodes[c].next, i++)
+                    if (i == (uint32_t) want) {
+                        next = c;
+                        break;
+                    }
+            }
+        }
+        if (next == ZTM_NONE) {
+            *failed = s;
+            return ZTM_NONE;
+        }
+        cur = next;
+    }
+    return cur;
 }

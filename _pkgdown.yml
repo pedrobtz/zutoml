@@ -17,6 +17,7 @@ reference:
   - title: Write TOML
     contents:
       - toml_emit
+      - toml-markers
   - title: Values
     contents:
       - toml_bigint

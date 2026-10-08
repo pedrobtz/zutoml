@@ -12,6 +12,7 @@ toml_parse(
   big_integers = c("bigint", "double", "error"),
   datetimes = c("convert", "keep"),
   local_time = c("character", "difftime"),
+  positions = FALSE,
   max_size = 64 * 1024^2,
   max_depth = 128L,
   max_items = 1e+06,
@@ -46,6 +47,18 @@ exact decimal text; \code{"double"} the nearest double; \code{"error"} raises
 
 \item{local_time}{\code{"character"} (the default) returns a local time as its
 text; \code{"difftime"} as seconds since midnight.}
+
+\item{positions}{If \code{TRUE}, the result carries an attribute
+\code{"toml_positions"}: a data frame with one row per key and array element,
+in the order of the parsed value, giving its \code{path} in TOML key syntax
+(\verb{servers[2].ip}, with keys quoted where TOML needs it, and array
+elements numbered from 1), its \code{type} (\code{"table"}, \code{"inline_table"},
+\code{"array_of_tables"}, \code{"array"}, \code{"string"}, \code{"integer"}, \code{"float"},
+\code{"bool"}, \code{"datetime"}, \code{"datetime-local"}, \code{"date-local"} or
+\code{"time-local"}), and the \code{line}, \code{column} (1-based, in characters) and
+byte \code{offset} (0-based) where it is defined: a key's position for a
+keyed value, the \verb{[[header]]} for each table of an array of tables.
+Code that checks a configuration can then say where a value is wrong.}
 
 \item{max_size}{The largest document accepted, in bytes, or \code{Inf}.}
 
@@ -125,6 +138,10 @@ x$owner$dob
 x$ports
 
 toml_parse(doc, data_frame = TRUE)$products
+
+# Where each value is, for messages about the document:
+pos <- attr(toml_parse(doc, positions = TRUE), "toml_positions")
+pos[pos$path == "owner.dob", ]
 }
 \seealso{
 \code{\link[=toml_validate]{toml_validate()}} to check a document without building it;

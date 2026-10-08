@@ -24,4 +24,8 @@ typedef struct {
 /* The R value of the whole document, or R_NilValue with b->fault set. */
 SEXP ztm_build(ztm_builder *b);
 
+/* The positions table of toml_parse(positions = TRUE): path, type, line,
+ * column and offset of every key and array element, in document order. */
+SEXP ztm_positions(const ztm_doc *doc);
+
 #endif

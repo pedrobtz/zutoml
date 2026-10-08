@@ -72,7 +72,8 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 | 5 — The emitter | M | 4 | `toml_emit()`, `toml_write()`; §7 and §8; the emitter against the suite |
 | 6 — Round trip, limits, fuzzing, mutation check | M | 5 | the properties and hostile inputs of §15; sanitizers clean |
 | 7 — Files, connections, documentation, benchmarks | S | 6 | `toml_read()` bounded; vignette; `cran-comments.md`; benchmarks recorded |
-| 8 — Release 0.1.0 | S | 7, and zufast on CRAN | the submission |
+| 7b — Key positions and emit markers | S | 7 | `toml_parse(positions = TRUE)`; `toml_inline()`, `toml_literal()`, `toml_multiline()` |
+| 8 — Release 0.1.0 | S | 7b, and zufast on CRAN | the submission |
 
 ---
 
@@ -269,7 +270,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 7 — Files, connections, documentation, benchmarks · S
 
-**Status:** in review (branch `stage-7-files`).
+**Status:** done 2026-10-08 (#20, closes #9).
 
 **What actually happened.** `R/zu_source.R` is zuxml's, verbatim; `air.toml` excludes it from formatting so it stays so. `toml_write()` had landed with the emitter at Stage 5. The benchmarks met both targets with room (parse 0.40× `RcppTOML`, emit 1.14× `zuyaml`; design §16); `zuyaml` writes no `Date` or `POSIXct`, so the emit benchmark uses date-times as text.
 
@@ -286,6 +287,26 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 **Exit**
 
 - `devtools::check(cran = TRUE)` 0/0/0; `pkgdown::check_pkgdown()` clean; the endless-connection test passes; benchmarks recorded.
+
+---
+
+## Stage 7b — Key positions and emit markers · S
+
+**Status:** in review (branch `stage-7b-positions-markers`).
+
+**Goal:** the two features from other ecosystems' TOML libraries that no R package offers and that zutoml can add cheaply (design D19): where each key is, for messages that point into the document; and per-value control of how a value is written.
+
+**Do**
+
+- `toml_parse(positions = TRUE)`: a `"toml_positions"` data frame of path, type, line, column and offset for every key and array element, built from the node tree's positions. A table first implied by a deeper header is positioned where it is defined; each table of an array of tables at its `[[header]]`.
+- `toml_inline()`, `toml_literal()`, `toml_multiline()`: classes the emitter honours (design §7.2a).
+- Tests: every type name; quoted paths; positions of implied tables and array-of-tables elements; every marker as exact text; marked values read back as the unmarked ones.
+
+**Exit**
+
+- `devtools::check(cran = TRUE)` 0/0/0; CI green on every leg, rchk included.
+
+**What actually happened.** Planned and built in one sitting after Stage 7, at the maintainer's request, from a survey of Python (tomllib, tomli-w, tomlkit), Node (smol-toml, j-toml) and Go (BurntSushi/toml) libraries. The three larger ideas from that survey went to "After 0.1.0" below.
 
 ---
 
@@ -326,7 +347,7 @@ TOML 1.1.0 forms unless §18 Q5 admits them · format-preserving edits · commen
 | Item | Why not now | What would bring it in |
 |---|---|---|
 | `version = "1.1.0"` forms | decided at Stage 1 (§18 Q5) | the decision, or a user with a 1.1 document |
-| `offset = TRUE` on emit (§18 Q3) | UTC is deterministic across sessions | a caller who needs the written offset kept |
+| `offset = TRUE` on emit (§18 Q3) | UTC is deterministic across sessions | a caller who needs the written offset kept; now "After 0.1.0" item 1 |
 | `int64 =` option (§18 Q4) | the family's bigint class keeps three packages alike | a `bit64` user |
 | a bare-time primitive in zufast | zutoml's twenty lines suffice | a second consumer |
 
@@ -345,6 +366,10 @@ TOML 1.1.0 forms unless §18 Q5 admits them · format-preserving edits · commen
 
 ## After 0.1.0
 
-1. TOML 1.1.0, if not already admitted (§18 Q5).
-2. `data_frame` writing options and `offset = TRUE`, as users ask.
-3. The first user bug reports, and whatever they show the mapping gets wrong.
+1. **Date-times that keep their kind and offset** (from smol-toml's date class and tomlkit): a `toml_datetime` class, or an offset attribute on `POSIXct`, so that `1979-05-27T00:32:00-07:00` reads and writes back exactly instead of in UTC (design §7.4; this is §18 Q3's deferred `offset = TRUE`).
+2. **Comments on write** (from j-toml and tomlkit): a `header =` argument to `toml_emit()`, and a comment attribute on a value or table that the emitter writes above it. Write-only, so §2's "no comments in the parsed value" stands.
+3. **Unknown keys** (from BurntSushi/toml's `Undecoded()`): `toml_unknown(x, template)` listing the keys of a parsed document that a template of expected keys does not have, with their positions, to catch typos such as `prot = 8080`. It edges toward the schema language §2 excludes, so it stays a key comparison and nothing more.
+4. `data_frame` writing options, as users ask.
+5. The first user bug reports, and whatever they show the mapping gets wrong.
+
+(TOML 1.1.0, item 1 of the RFC's list, was admitted at Stage 1: D17.)

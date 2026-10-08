@@ -2,6 +2,9 @@
 
 ## zutoml 0.0.0.9000
 
+- [`toml_read()`](https://pedrobtz.github.io/zutoml/reference/toml_read.md)
+  reads a TOML document from a file, URL or connection, never holding
+  more than `max_size + 1` bytes.
 - [`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
   reads a TOML document into ordinary R values: tables as named lists in
   document order, arrays as vectors where their elements share a type,
@@ -24,3 +27,6 @@
 - Every case of the `toml-test` suite passes, for TOML 1.0.0 and 1.1.0,
   in both directions. TOML 1.1.0 is read by default; `version = "1.0.0"`
   reads strictly; the emitter always writes TOML 1.0.0.
+- A vignette,
+  [`vignette("zutoml")`](https://pedrobtz.github.io/zutoml/articles/zutoml.md),
+  reads `pyproject.toml` and `Cargo.toml` and writes a configuration.

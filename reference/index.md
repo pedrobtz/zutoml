@@ -4,6 +4,8 @@
 
 - [`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
   : Parse a TOML document
+- [`toml_read()`](https://pedrobtz.github.io/zutoml/reference/toml_read.md)
+  : Read a TOML document from a file or connection
 - [`toml_validate()`](https://pedrobtz.github.io/zutoml/reference/toml_validate.md)
   : Check that a document is valid TOML
 

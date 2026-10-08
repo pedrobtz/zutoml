@@ -2,6 +2,8 @@
 <url><loc>https://pedrobtz.github.io/zutoml/404.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/LICENSE-text.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/LICENSE.html</loc></url>
+<url><loc>https://pedrobtz.github.io/zutoml/articles/index.html</loc></url>
+<url><loc>https://pedrobtz.github.io/zutoml/articles/zutoml.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/authors.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/index.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/news/index.html</loc></url>
@@ -9,6 +11,7 @@
 <url><loc>https://pedrobtz.github.io/zutoml/reference/toml_bigint.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/reference/toml_emit.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/reference/toml_parse.html</loc></url>
+<url><loc>https://pedrobtz.github.io/zutoml/reference/toml_read.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/reference/toml_validate.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/reference/zutoml-conditions.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zutoml/reference/zutoml-package.html</loc></url>

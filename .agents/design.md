@@ -472,12 +472,12 @@ Every row of the §6 and §7 tables has a test. The tables in the roxygen docs, 
 - `[` repeated 10^6 times; `a.` repeated to a 10 MB key; a 10^6-element array of empty inline tables; a multi-line string with 10^7 line-ending backslashes; a basic string with 10^6 `\u0000`; a document of 10^6 `[[a]]` headers; every control character in every string form. Each fails through its class with a position, and none crashes, hangs or allocates unbounded.
 - `toml_read()` on an endless connection stops one byte past `max_size`.
 - Interrupt: `setTimeLimit()` inside the same expression as a large parse unwinds cleanly and the same input then parses.
-- `tools/run-mutation-check` removes each guard in turn and requires its hostile input to stop being refused.
+- `tools/run-mutation-check` removes each guard of the check phase in turn and requires its hostile input to stop being refused (through `fuzz/probe.c`); `tools/run-mutation-check-r` does the same for the build phase and the emitter through an installed scratch copy of the package.
 - No test performs network I/O; asserted by `tools/check-no-network` in CI.
 
 ### Fuzzing and native checks
 
-The check phase builds without R (`-DZTM_STANDALONE`), so libFuzzer runs `fuzz/fuzz_parse.c` over the same `ztm_parse.c` the package uses, seeded from every `toml-test` file; `fuzz/fuzz_canary.c` must crash before any real target is trusted. Invariants: no crash, every proper prefix of every valid file is a parse error or a smaller valid document, and relaxing a limit can only accept more. The build phase and the emitter are fuzzed through R under the ASan and UBSan legs. Valgrind, `rchk`, gctorture and LTO run through `pedrobtz/r-actions`.
+The check phase builds without R (`-DZTM_STANDALONE`), so libFuzzer runs `fuzz/fuzz_parse.c` over the same `ztm_parse.c` the package uses, seeded from every `toml-test` file; `fuzz/fuzz_canary.c` must crash before any real target is trusted. Invariants: no crash, every proper prefix of every valid file is a parse error or a smaller valid document, and relaxing a limit can only accept more. The build phase and the emitter are fuzzed through R under the ASan and UBSan legs (`test-fuzz-r.R`, enabled there by `ZUTOML_SLOW_TESTS`: mutated toml-test documents through every parse option, and generated values through every emit option). Valgrind, `rchk`, gctorture and LTO run through `pedrobtz/r-actions`.
 
 ---
 

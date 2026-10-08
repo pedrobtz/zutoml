@@ -43,6 +43,7 @@ typedef struct {
     ztm_emit_status status;
     const char *detail;
     int dropped;       /* an array element was dropped under na = "omit" */
+    unsigned long nvalues;   /* for the interrupt check */
 } emitter;
 
 /* ---- the buffer --------------------------------------------------------- */
@@ -468,6 +469,17 @@ static int put_bigint(emitter *e, SEXP ch)
     return 1;
 }
 
+/* A date, date-time or local time, whatever the vector's storage: R makes
+ * integer-backed Dates (as.Date() of an integer) as readily as double ones. */
+static int put_time_value(emitter *e, SEXP x, double v)
+{
+    if (has_class(x, "POSIXct"))
+        return put_datetime_utc(e, v);
+    if (has_class(x, "Date"))
+        return put_date(e, v);
+    return put_local_time(e, x, v);
+}
+
 /* Element i of the atomic vector x, which is not NA. */
 static int put_scalar(emitter *e, SEXP x, R_xlen_t i, int ml_ok)
 {
@@ -483,16 +495,14 @@ static int put_scalar(emitter *e, SEXP x, R_xlen_t i, int ml_ok)
                 return fail(e, ZTM_EMIT_INVALID, "a factor with a code outside its levels");
             return put_string(e, STRING_ELT(levels, code - 1), ml_ok);
         }
+        if (has_class(x, "POSIXct") || has_class(x, "Date") || has_class(x, "difftime"))
+            return put_time_value(e, x, (double) INTEGER(x)[i]);
         put_i64(e, INTEGER(x)[i]);
         return 1;
     case REALSXP: {
         double v = REAL(x)[i];
-        if (has_class(x, "POSIXct"))
-            return put_datetime_utc(e, v);
-        if (has_class(x, "Date"))
-            return put_date(e, v);
-        if (has_class(x, "difftime"))
-            return put_local_time(e, x, v);
+        if (has_class(x, "POSIXct") || has_class(x, "Date") || has_class(x, "difftime"))
+            return put_time_value(e, x, v);
         put_double(e, v);
         return 1;
     }
@@ -567,6 +577,8 @@ static int put_array_elements(emitter *e, SEXP x, int depth, int multiline)
         first = 0;
         if (!check_depth(e, depth + 1))
             return 0;
+        if (atomic && ++e->nvalues % 65536u == 0)
+            R_CheckUserInterrupt();
         if (atomic ? !put_scalar(e, x, i, 0) : !put_value(e, VECTOR_ELT(x, i), depth + 1, 0))
             return 0;
         if (multiline)
@@ -686,6 +698,9 @@ static int put_inline_table(emitter *e, SEXP x, int depth)
 static int put_value(emitter *e, SEXP x, int depth, int ml_ok)
 {
     R_CheckStack();
+    /* Everything held is R_alloc()ed, so an interrupt leaks nothing. */
+    if (++e->nvalues % 65536u == 0)
+        R_CheckUserInterrupt();
     if (Rf_isVectorAtomic(x)) {
         if (!writable_atomic(e, x))
             return 0;

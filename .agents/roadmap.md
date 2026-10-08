@@ -246,7 +246,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 6 — Round trip, limits, fuzzing, mutation check · M
 
-**Status:** not started.
+**Status:** in review (branch `stage-6-hardening`).
+
+**What actually happened.** The round-trip generator (`helper-generate.R`) found an emitter bug at once: a `Date` stored as integers (which `as.Date()` of an integer gives) was written as a plain integer, as were integer-backed `POSIXct` and `difftime`; fixed, with a regression test. The generator itself had to learn the losses of design §7.4 (a table's values before its sub-tables; numeric kinds that the lattice joins), which is what the section is for. The R-side mutation check first reported every guard as not load-bearing: the mutant copies carried stale object files that make thought current; it clears them now. The 2 GiB string guard is not mutation-checked, since no test can build one cheaply. `zutoml_info()` was in design §5 but in no stage; it landed here, where the sanitizer exercise wanted the depth cap. The heavy tests also skip on CRAN, to keep the suite under 15 s; every CI leg runs them.
 
 **Goal:** the properties and the hostile inputs of §15 hold, under every instrumented build.
 

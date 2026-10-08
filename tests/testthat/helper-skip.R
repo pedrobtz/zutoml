@@ -3,7 +3,10 @@
 # Skips a test that allocates millions of R objects. It checks a limit or a
 # code path, not memory safety, and under gctorture or valgrind it would take
 # hours; native-checks.yaml sets ZUTOML_SKIP_HEAVY for those jobs.
+# They also skip on CRAN, to keep the suite inside its time budget; every
+# CI leg runs them.
 skip_heavy <- function() {
+  skip_on_cran()
   skip_if(nzchar(Sys.getenv("ZUTOML_SKIP_HEAVY")), "ZUTOML_SKIP_HEAVY is set")
 }
 

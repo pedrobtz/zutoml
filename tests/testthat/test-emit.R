@@ -52,6 +52,19 @@ test_that("7.1 booleans, dates, times and factors", {
   expect_toml(list(a = factor("b", levels = c("a", "b"))), "a = \"b\"\n")
 })
 
+test_that("dates and times are written whatever their storage", {
+  # as.Date() of an integer is integer-backed; it is still a date.
+  expect_toml(list(a = as.Date(3799L)), "a = 1980-05-27\n")
+  expect_toml(
+    list(a = structure(0L, class = c("POSIXct", "POSIXt"), tzone = "UTC")),
+    "a = 1970-01-01T00:00:00Z\n"
+  )
+  expect_toml(
+    list(a = structure(60L, class = "difftime", units = "secs")),
+    "a = 00:01:00\n"
+  )
+})
+
 test_that("7.1 a POSIXct with no time zone is a local date-time", {
   withr::local_timezone("Europe/Lisbon")
   x <- as.POSIXct("1979-05-27 07:32:00.123", tz = "")
@@ -128,7 +141,11 @@ test_that("inline = writes small flat tables inline", {
     inline = 2
   )
   # p holds a list, so it keeps its header; x is small and flat.
-  expect_toml(list(p = list(x = list(y = 1L))), "[p]\nx = { y = 1 }\n", inline = 2)
+  expect_toml(
+    list(p = list(x = list(y = 1L))),
+    "[p]\nx = { y = 1 }\n",
+    inline = 2
+  )
 })
 
 test_that("width = wraps long arrays one element per line", {

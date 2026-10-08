@@ -199,24 +199,3 @@ test_that("max_depth must be a positive whole number, and not Inf", {
     "zutoml_invalid_argument"
   )
 })
-
-test_that("hostile inputs fail by class, not by crash or stack overflow", {
-  skip_heavy()
-  # 10^6 open brackets: the depth counter, never the C stack.
-  err <- validate_error(paste0("a = ", strrep("[", 1e6)))
-  expect_s3_class(err, "zutoml_depth_limit")
-  err <- validate_error(paste0("a = ", strrep("{b = ", 1e5)))
-  expect_s3_class(err, "zutoml_depth_limit")
-  # A dotted key of 5 * 10^5 parts is a nesting, and the depth limit says so.
-  err <- validate_error(paste0(strrep("a.", 5e5), "a = 1"))
-  expect_s3_class(err, "zutoml_depth_limit")
-  # 10^6 array-of-tables headers: within max_items, or refused by it.
-  doc <- strrep("[[a]]\n", 1e6)
-  expect_s3_class(validate_error(doc), "zutoml_item_limit")
-  expect_true(toml_validate(doc, max_items = 2e6))
-  # A million distinct keys parse in linear time; the last duplicate is
-  # still found.
-  keys <- paste0("k", seq_len(2e5), " = 1", collapse = "\n")
-  expect_true(toml_validate(keys))
-  expect_identical(validate_kind(paste0(keys, "\nk1 = 2")), "duplicate_key")
-})

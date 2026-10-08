@@ -44,6 +44,9 @@ jobs:
     with:
       asan: true
       extra-ubsan-checks: -UNDEBUG
+      # test-fuzz-r.R: the build phase and the emitter fuzzed through R.
+      env: |
+        ZUTOML_SLOW_TESTS=true
       profile: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && 'quick' || 'full' }}
 
   valgrind:

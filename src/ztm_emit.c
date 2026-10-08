@@ -589,9 +589,8 @@ static int put_array(emitter *e, SEXP x, int depth)
 
 /* One row of a data frame, as an inline table. NA cells are missing keys:
  * that is what toml_parse(data_frame = TRUE) makes of them. */
-static int put_df_row(emitter *e, SEXP df, R_xlen_t row, int depth)
+static int put_df_row_with(emitter *e, SEXP df, SEXP names, R_xlen_t row, int depth)
 {
-    SEXP names = Rf_getAttrib(df, R_NamesSymbol);
     int first = 1;
     putc_(e, '{');
     for (R_xlen_t j = 0; j < XLENGTH(df); j++) {
@@ -620,22 +619,34 @@ static int put_df_row(emitter *e, SEXP df, R_xlen_t row, int depth)
     return 1;
 }
 
+/* The names vector is protected here: rchk cannot see that it hangs off a
+ * protected object, and an attribute getter may allocate. */
+static int put_df_row(emitter *e, SEXP df, R_xlen_t row, int depth)
+{
+    SEXP names = PROTECT(Rf_getAttrib(df, R_NamesSymbol));
+    int ok = put_df_row_with(e, df, names, row, depth);
+    UNPROTECT(1);
+    return ok;
+}
+
 static int check_names(emitter *e, SEXP x)
 {
-    SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+    SEXP names = PROTECT(Rf_getAttrib(x, R_NamesSymbol));
     for (R_xlen_t i = 0; i < XLENGTH(names); i++)
         if (STRING_ELT(names, i) == NA_STRING)
+        {
+            UNPROTECT(1);
             return fail(e, ZTM_EMIT_INVALID, "a list with NA names: every key must be a string");
-    if (Rf_any_duplicated(names, FALSE))
+        }
+    int dup = Rf_any_duplicated(names, FALSE) != 0;
+    UNPROTECT(1);
+    if (dup)
         return fail(e, ZTM_EMIT_INVALID, "a list with duplicated names: TOML keys are unique");
     return 1;
 }
 
-static int put_inline_table(emitter *e, SEXP x, int depth)
+static int put_inline_table_with(emitter *e, SEXP x, SEXP names, int depth)
 {
-    if (!check_names(e, x))
-        return 0;
-    SEXP names = Rf_getAttrib(x, R_NamesSymbol);
     int first = 1;
     putc_(e, '{');
     for (R_xlen_t i = 0; i < XLENGTH(x); i++) {
@@ -658,6 +669,16 @@ static int put_inline_table(emitter *e, SEXP x, int depth)
     }
     puts_(e, first ? "}" : " }");
     return 1;
+}
+
+static int put_inline_table(emitter *e, SEXP x, int depth)
+{
+    if (!check_names(e, x))
+        return 0;
+    SEXP names = PROTECT(Rf_getAttrib(x, R_NamesSymbol));
+    int ok = put_inline_table_with(e, x, names, depth);
+    UNPROTECT(1);
+    return ok;
 }
 
 /* A value on the right of '=' or in an array: a scalar, an array, an inline
@@ -754,16 +775,49 @@ static int put_header(emitter *e, const header_path *h, int aot)
     return 1;
 }
 
+/* A data frame under a key: one [[header]] per row, each row's cells as
+ * the table's values (NA cells left out). cn, the column names, is
+ * protected by the caller. */
+static int put_df_aot(emitter *e, SEXP v, SEXP cn, int depth, header_path *h)
+{
+    R_xlen_t nrow = df_nrow(v);
+    for (R_xlen_t r = 0; r < nrow; r++) {
+        push_index(e, r);
+        if (!check_depth(e, depth + 2) || !put_header(e, h, 1))
+            return 0;
+        for (R_xlen_t j = 0; j < XLENGTH(v); j++) {
+            SEXP col = VECTOR_ELT(v, j);
+            int missing = Rf_isVectorAtomic(col) ? is_na_elt(col, r)
+                                                 : is_missing(VECTOR_ELT(col, r));
+            if (missing)
+                continue;
+            push_key(e, CHAR(STRING_ELT(cn, j)));
+            if (!put_key(e, STRING_ELT(cn, j)))
+                return 0;
+            puts_(e, " = ");
+            if (!check_depth(e, depth + 3))
+                return 0;
+            if (Rf_isVectorAtomic(col)) {
+                if (!writable_atomic(e, col) || !put_scalar(e, col, r, 1))
+                    return 0;
+            } else if (!put_value(e, VECTOR_ELT(col, r), depth + 3, 1)) {
+                return 0;
+            }
+            newline(e);
+            pop(e);
+        }
+        pop(e);
+    }
+    return 1;
+}
+
 static int put_table_body(emitter *e, SEXP x, int depth, header_path *h);
+static int put_header(emitter *e, const header_path *h, int aot);
 
 /* `key = value` for the table's own values, then a section per sub-table and
  * array of tables, depth-first in the list's order (design section 7.2). */
-static int put_table_body(emitter *e, SEXP x, int depth, header_path *h)
+static int put_table_body_with(emitter *e, SEXP x, SEXP names, int depth, header_path *h)
 {
-    R_CheckStack();
-    if (!check_depth(e, depth) || !check_names(e, x))
-        return 0;
-    SEXP names = Rf_getAttrib(x, R_NamesSymbol);
     R_xlen_t n = XLENGTH(x);
     for (R_xlen_t i = 0; i < n; i++) {
         SEXP v = VECTOR_ELT(x, i);
@@ -820,35 +874,11 @@ static int put_table_body(emitter *e, SEXP x, int depth, header_path *h)
             /* An array of tables, one per row: each row's cells are values. */
             if (!check_depth(e, depth + 1))
                 return 0;
-            R_xlen_t nrow = df_nrow(v);
-            SEXP cn = Rf_getAttrib(v, R_NamesSymbol);
-            for (R_xlen_t r = 0; r < nrow; r++) {
-                push_index(e, r);
-                if (!check_depth(e, depth + 2) || !put_header(e, h, 1))
-                    return 0;
-                for (R_xlen_t j = 0; j < XLENGTH(v); j++) {
-                    SEXP col = VECTOR_ELT(v, j);
-                    int missing = Rf_isVectorAtomic(col) ? is_na_elt(col, r)
-                                                         : is_missing(VECTOR_ELT(col, r));
-                    if (missing)
-                        continue;
-                    push_key(e, CHAR(STRING_ELT(cn, j)));
-                    if (!put_key(e, STRING_ELT(cn, j)))
-                        return 0;
-                    puts_(e, " = ");
-                    if (!check_depth(e, depth + 3))
-                        return 0;
-                    if (Rf_isVectorAtomic(col)) {
-                        if (!writable_atomic(e, col) || !put_scalar(e, col, r, 1))
-                            return 0;
-                    } else if (!put_value(e, VECTOR_ELT(col, r), depth + 3, 1)) {
-                        return 0;
-                    }
-                    newline(e);
-                    pop(e);
-                }
-                pop(e);
-            }
+            SEXP cn = PROTECT(Rf_getAttrib(v, R_NamesSymbol));
+            int ok = put_df_aot(e, v, cn, depth, h);
+            UNPROTECT(1);
+            if (!ok)
+                return 0;
         } else if (is_aot(v)) {
             if (!check_depth(e, depth + 1))
                 return 0;
@@ -878,6 +908,17 @@ static int put_table_body(emitter *e, SEXP x, int depth, header_path *h)
         pop(e);
     }
     return 1;
+}
+
+static int put_table_body(emitter *e, SEXP x, int depth, header_path *h)
+{
+    R_CheckStack();
+    if (!check_depth(e, depth) || !check_names(e, x))
+        return 0;
+    SEXP names = PROTECT(Rf_getAttrib(x, R_NamesSymbol));
+    int ok = put_table_body_with(e, x, names, depth, h);
+    UNPROTECT(1);
+    return ok;
 }
 
 SEXP ztm_emit(SEXP x, const ztm_emit_opts *opt, ztm_emit_result *res)

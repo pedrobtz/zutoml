@@ -312,7 +312,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 8 — Release 0.1.0 · S
 
-**Status:** not started. Waits for zufast on CRAN.
+**Status:** ready, except for what waits on zufast (branch `stage-8-release`). Done: `Version: 0.1.0` and its `NEWS.md` heading; the acceptance criteria table below, every criterion but #1 met; the `cran-extrachecks` and `review-cran-submission` reviews, every finding resolved (Description now names TOML 1.1.0, the writer and the specification; README gives `install.packages()`; the package help page is public; `cran-comments.md` notes method references and the zufast dependency); `R CMD check --as-cran --run-donttest` 0/0/0 bar the "New submission" note. **Left, when zufast is on CRAN:** remove `Remotes:` (and the rchk `github-packages` input in `native-checks.yaml`), rebuild and check against zufast's CRAN tarball (R10.3), submit; after acceptance, tag `v0.1.0`, publish the release, bump to `0.1.0.9000`, close #1 and #10.
 
 **Do**
 
@@ -327,16 +327,16 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Acceptance criteria against stages
 
-| § 19 | Criterion | Stage | Verified by (to be filled at Stage 8) |
-|---|---|---|---|
-| 1 | builds everywhere with zufast from CRAN | 0, 8 | `R-CMD-check.yaml` full profile |
-| 2 | every `toml-test` case, both kinds | 3, 4 | `conformance.yaml`, `test-conformance.R` |
-| 3 | every emitted document accepted | 5 | `test-emit-conformance.R`, the reference decoder job |
-| 4 | hostile inputs refused with a class; canary seen | 1, 3, 6 | `test-hostile.R`, `tools/run-fuzz`, `tools/run-mutation-check` |
-| 5 | deterministic emission | 5 | the cross-platform fixture |
-| 6 | round-trip properties | 6 | `test-roundtrip.R` |
-| 7 | three copies of each table agree | 4, 5 | review, stated as such |
-| 8 | clean check; only `R_init_zutoml` exported | 0, 8 | CI matrix, `tools/check-symbols` |
+| § 19 | Criterion | Stage | Verified by (filled at Stage 8, 2026-10-08) | State |
+|---|---|---|---|---|
+| 1 | builds everywhere with zufast from CRAN | 0, 8 | `R-CMD-check.yaml` full profile: Windows, macOS, Ubuntu release and oldrel-1, gcc 16 and clang 23 containers | **pending:** green with zufast from `Remotes:`; the build against zufast's CRAN tarball waits for zufast on CRAN |
+| 2 | every `toml-test` case, both kinds | 3, 4 | `test-conformance.R` (on every CI leg and on CRAN); `tools/run-conformance` in `conformance.yaml` (strict: one case wrong fails the job) | met |
+| 3 | every emitted document accepted | 5 | `test-emit-conformance.R` (round trip, and `toml_validate(version = "1.0.0")`); `conformance.yaml` feeds all 412 emitted documents to BurntSushi/toml's `toml-test-decoder` v1.6.0 and Python's `tomllib` | met |
+| 4 | hostile inputs refused with a class; canary seen | 1, 3, 6 | `test-hostile.R`, `test-lex.R` (control characters), `test-fuzz-r.R` (sanitizer legs); `tools/run-fuzz` in `hardening.yaml` (the canary must crash first); `tools/run-mutation-check` (40 guards) and `tools/run-mutation-check-r` (4) | met |
+| 5 | deterministic emission | 5 | the `test-emit.R` snapshot (`_snaps/emit.md`), compared on every CI leg; `test-roundtrip.R` emits each value twice | met |
+| 6 | round-trip properties | 6 | `test-roundtrip.R` (300 generated values, plus 60 with literal strings, inline tables and wrapping, plus local date-times in three zones) | met |
+| 7 | three copies of each table agree | 4, 5 | review at Stage 8: design §6.1 and §7.1–7.2a against the roxygen tables of `?toml_parse` and `?toml_emit` (and `?toml-markers`) and against `test-parse.R`, `test-emit.R`, `test-markers.R`, row by row | met (by review, as planned) |
+| 8 | clean check; only `R_init_zutoml` exported | 0, 8 | `R CMD check --as-cran` 0/0/0 on every CI leg and locally with `--run-donttest`; `tools/check-symbols` in `hardening.yaml` | met |
 
 ## Explicitly not in 0.1.0
 

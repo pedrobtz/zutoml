@@ -6,16 +6,11 @@
 \alias{zutoml-package}
 \title{zutoml: Read and Write 'TOML' Documents}
 \description{
-Parses 'TOML' (Tom's Obvious Minimal Language) version 1.0 documents into ordinary R values and writes R values as 'TOML'. Every 'TOML' type maps to one R type, including the four date and time types, and strings are never reinterpreted. Invalid documents are refused with the line and column at fault, under configurable size, depth and item limits. Output is deterministic and readable. Conformance is checked against the 'toml-test' suite (\url{https://github.com/toml-lang/toml-test}) in both directions. The parser and writer are written in C with no system library required.
+Parses 'TOML' (Tom's Obvious Minimal Language) documents, versions 1.0.0 and 1.1.0 \url{https://toml.io/en/v1.1.0}, into ordinary R values, and writes R values as 'TOML'. Every 'TOML' type maps to one R type, including the four date and time types, and strings are never reinterpreted. Invalid documents are refused with the line and column at fault, under configurable size, depth, item and string limits, and output is deterministic. Both directions pass the 'toml-test' conformance suite \url{https://github.com/toml-lang/toml-test}. The parser and writer are written in C, with no system library required.
 }
 \seealso{
-Useful links:
-\itemize{
-  \item \url{https://github.com/pedrobtz/zutoml}
-  \item \url{https://pedrobtz.github.io/zutoml/}
-  \item Report bugs at \url{https://github.com/pedrobtz/zutoml/issues}
-}
-
+\code{\link[=toml_parse]{toml_parse()}} to read, \code{\link[=toml_emit]{toml_emit()}} to write, and
+\code{vignette("zutoml")} for a tour.
 }
 \author{
 \strong{Maintainer}: Pedro Baltazar \email{pedrobtz@gmail.com} [copyright holder]
@@ -26,4 +21,3 @@ Authors:
 }
 
 }
-\keyword{internal}

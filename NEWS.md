@@ -1,4 +1,6 @@
-# zutoml 0.0.0.9000
+# zutoml 0.1.0
+
+* Initial CRAN submission.
 
 * `toml_read()` reads a TOML document from a file, URL or connection, never
   holding more than `max_size + 1` bytes.

@@ -21,7 +21,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     ztm_fault fault;
     ztm_token *toks;
     size_t n;
-    ztm_status s10 = ztm_tokenize(data, size, &opt, &toks, &n, &fault);
+    ztm_status s10 = ztm_tokenize(data, size, &opt, &toks, NULL, &n, &fault);
     if (s10 == ZTM_OK) {
         size_t prev = 0;
         for (size_t i = 0; i < n; i++) {
@@ -36,7 +36,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
     ztm_arena_reset();
     opt.version = ZTM_TOML_1_1;
-    ztm_status s11 = ztm_tokenize(data, size, &opt, &toks, &n, &fault);
+    ztm_status s11 = ztm_tokenize(data, size, &opt, &toks, NULL, &n, &fault);
     check(s10 != ZTM_OK || s11 == ZTM_OK);
     ztm_arena_reset();
     return 0;

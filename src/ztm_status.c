@@ -13,6 +13,10 @@ static const char *const status_names[ZTM_STATUS_COUNT] = {
     "multiline_key",
     "unexpected_character",
     "invalid_value",
+    "invalid_integer",
+    "integer_range",
+    "invalid_float",
+    "invalid_datetime",
     "size_limit",
     "string_limit",
 };

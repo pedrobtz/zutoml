@@ -506,7 +506,7 @@ enum { CTX_ARRAY = 1, CTX_ITAB = 2 };
 enum { ST_KEY, ST_VALUE, ST_AFTER };
 
 ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *opt,
-                        ztm_token **out, size_t *n, ztm_fault *fault)
+                        ztm_token **out, ztm_value **vals, size_t *n, ztm_fault *fault)
 {
     ztm_lexer lx;
     ztm_status s = ztm_lex_init(&lx, buf, len, opt, fault);
@@ -514,6 +514,7 @@ ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *op
 
     size_t cap = 64, count = 0, depth = 0, stack_cap = 16;
     ztm_token *toks = ztm_scratch(cap, sizeof *toks);
+    ztm_value *values = ztm_scratch(cap, sizeof *values);
     unsigned char *stack = ztm_scratch(stack_cap, 1);
     int state = ST_KEY;
 
@@ -523,13 +524,21 @@ ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *op
                             ? ZTM_MODE_VALUE : ZTM_MODE_KEY;
         if (count == cap) {
             ztm_token *grown = ztm_scratch(cap * 2, sizeof *toks);
+            ztm_value *vgrown = ztm_scratch(cap * 2, sizeof *values);
             memcpy(grown, toks, cap * sizeof *toks);
+            memcpy(vgrown, values, cap * sizeof *values);
             toks = grown;
+            values = vgrown;
             cap *= 2;
         }
         ztm_token *t = &toks[count];
         s = ztm_lex_next(&lx, mode, t, fault);
         if (s) return s;
+        memset(&values[count], 0, sizeof values[count]);
+        if (mode == ZTM_MODE_VALUE && t->type >= ZTM_TOK_BASIC_STRING) {
+            s = ztm_value_of(&lx, t, &values[count], fault);
+            if (s) return s;
+        }
         count++;
         if (t->type == ZTM_TOK_EOF)
             break;
@@ -582,6 +591,8 @@ ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *op
         }
     }
     *out = toks;
+    if (vals)
+        *vals = values;
     *n = count;
     return ZTM_OK;
 }

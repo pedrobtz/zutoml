@@ -114,7 +114,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 1 — The lexer and the `toml-test` runner · M
 
-**Status:** in review (branch `stage-1-lexer`).
+**Status:** done 2026-10-08 (#14, closes #3).
 
 **What actually happened.** The lexer is pull-based, told by its caller whether a key or a value comes next, since `true` and `1234` are keys before `=`; `ztm_tokenize()` drives it from the bracket structure alone until the grammar exists. Strings are validated and their decoded length measured here (escapes included), so `max_string` is enforced at Stage 1; decoding itself stays at Stage 2. §18 Q5 was decided as D17 (TOML 1.1.0 by default). `zuf_utf8_valid()` reports no position, so zutoml finds the first bad byte itself, only on failure. The runner already shows 201 of 474 invalid 1.0.0 cases refused by the lexer alone.
 
@@ -143,7 +143,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 2 — Values: strings, numbers, date-times through zufast · M
 
-**Status:** not started.
+**Status:** in review (branch `stage-2-values`).
+
+**What actually happened.** `src/ztm_value.c` checks each span's TOML shape, strips prefixes and underscores, and asks zufast for the value with the whole span consumed; strings are decoded into scratch. Two contract corrections: fractions past nine digits are truncated, as the spec requires (design §6.1), and a float overflow is flagged for the build phase as unrepresentable (§6.4) rather than refused, so `toml_validate()` stays true for valid TOML. Local time borrows zufast's field validation by parsing it behind a fixed date. Every scalar directory of toml-test (`integer`, `float`, `datetime`, `local-*`) passes, valid and invalid, for both versions; the two `invalid/string` cases still accepted are grammar errors (two values without a separator), Stage 3's.
 
 **Goal:** every scalar span becomes a value, through zufast where zufast applies, with TOML's restrictions checked first.
 

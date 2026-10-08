@@ -15,7 +15,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     ztm_fault fault;
     ztm_token *toks;
     size_t n;
-    int ok = ztm_tokenize(data, size, &opt, &toks, &n, &fault) == ZTM_OK && size > 0;
+    int ok = ztm_tokenize(data, size, &opt, &toks, NULL, &n, &fault) == ZTM_OK && size > 0;
     ztm_arena_reset();
     if (ok)
         __builtin_trap();

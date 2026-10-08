@@ -27,7 +27,10 @@ test_that("every invalid toml-test case is refused with a position", {
       label <- paste(version, cases$name[[i]])
       bytes <- toml_test_bytes(cases$toml[[i]])
       expect_false(validate(bytes, version = version), label = label)
-      err <- tryCatch(validate(bytes, version = version, error = TRUE), error = identity)
+      err <- tryCatch(
+        validate(bytes, version = version, error = TRUE),
+        error = identity
+      )
       expect_s3_class(err, "zutoml_parse_error")
       expect_true(err$line >= 1 && err$column >= 1, label = label)
     }
@@ -50,8 +53,17 @@ test_that("every valid toml-test case parses to its expected value", {
         label
       )
       expect_toml_test_value(
-        parse(bytes, version = version, simplify = "none", local_time = "difftime"),
-        tagged_json_to_r(expected, datetimes = "convert", local_time = "difftime"),
+        parse(
+          bytes,
+          version = version,
+          simplify = "none",
+          local_time = "difftime"
+        ),
+        tagged_json_to_r(
+          expected,
+          datetimes = "convert",
+          local_time = "difftime"
+        ),
         label
       )
     }

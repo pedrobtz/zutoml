@@ -60,7 +60,7 @@ test_that("kept date-times are normalised to T and Z", {
   )
   expect_identical(
     toml_test_dt_text("1979-05-27t07:32:00.5+01:00"),
-    "1979-05-27T07:32:00.5+01:00"
+    "1979-05-27T07:32:00.500+01:00"
   )
 })
 
@@ -97,6 +97,8 @@ test_that("toml_test_diff() finds the first difference by key path", {
     "^a\\[2\\]"
   )
   expect_match(toml_test_diff(list(b = 1L), list(a = 1L)), "names")
+  # Tables compare by key, in any order.
+  expect_null(toml_test_diff(list(a = 1L, b = 2L), list(b = 2L, a = 1L)))
   expect_match(toml_test_diff(list(z = 0), list(z = neg_zero())), "^z:")
   expect_null(toml_test_diff(list(x = NaN), list(x = NaN)))
   # One ulp apart: accepted, since as.numeric() is not correctly rounded on

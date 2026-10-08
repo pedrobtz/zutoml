@@ -81,6 +81,10 @@ ztm_status_class <- function(status) {
     depth_limit = ztm_limit_class("max_depth"),
     item_limit = ztm_limit_class("max_items"),
     string_limit = ztm_limit_class("max_string"),
+    nul_in_string = ,
+    string_too_long = ,
+    big_integer = ,
+    float_overflow = "zutoml_unrepresentable",
     if (status %in% ztm_parse_statuses) "zutoml_parse_error" else character()
   )
 }
@@ -148,6 +152,23 @@ ztm_fault_message <- function(fault, class) {
       fault$limit,
       " = ",
       fmt(fault$limit_value)
+    ))
+  }
+  if ("zutoml_unrepresentable" %in% class) {
+    what <- switch(
+      fault$status,
+      nul_in_string = "a string or key holds U+0000, which R strings cannot",
+      string_too_long = "a string or key is longer than an R string can be",
+      big_integer = "an integer beyond 2^53, with big_integers = \"error\"",
+      float_overflow = "a float beyond the range of a double"
+    )
+    return(paste0(
+      "TOML value R cannot hold at line ",
+      fault$line,
+      ", column ",
+      fault$column,
+      ": ",
+      what
     ))
   }
   text <- ztm_status_text[fault$status]

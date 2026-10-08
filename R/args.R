@@ -2,12 +2,12 @@
 # limit silently replaced by a default is a limit the caller did not set, so
 # anything but a positive whole number (or Inf, where allowed) is refused.
 
-ztm_check_limit <- function(x, arg, allow_inf = TRUE) {
+ztm_check_limit <- function(x, arg, allow_inf = TRUE, max = 2^63) {
   ok <- is.numeric(x) &&
     length(x) == 1L &&
     !is.na(x) &&
     x >= 1 &&
-    (if (is.infinite(x)) allow_inf else x == floor(x) && x <= 2^63)
+    (if (is.infinite(x)) allow_inf else x == floor(x) && x <= max)
   if (!ok) {
     ztm_invalid_argument(
       arg,
@@ -15,12 +15,55 @@ ztm_check_limit <- function(x, arg, allow_inf = TRUE) {
         "`",
         arg,
         "` must be a positive whole number",
+        if (max < 2^63) paste0(" no larger than ", max) else "",
         if (allow_inf) " or Inf" else "",
         "."
       )
     )
   }
   as.double(x)
+}
+
+# max_depth is capped (ZTM_MAX_DEPTH_CAP in src/ztm_check.h): the build
+# phase recurses once per level (design section 12).
+ztm_max_depth_cap <- 1023
+
+ztm_check_depth <- function(x) {
+  ztm_check_limit(x, "max_depth", allow_inf = FALSE, max = ztm_max_depth_cap)
+}
+
+# One of `choices`, by partial matching as match.arg() does, but refused as
+# zutoml_invalid_argument rather than a bare error. Returns the 0-based index
+# the C layer takes.
+ztm_check_choice <- function(x, choices, arg) {
+  if (identical(x, choices)) {
+    return(0L)
+  }
+  i <- if (is.character(x) && length(x) == 1L && !is.na(x)) {
+    pmatch(x, choices)
+  } else {
+    NA
+  }
+  if (is.na(i)) {
+    ztm_invalid_argument(
+      arg,
+      paste0(
+        "`",
+        arg,
+        "` must be one of ",
+        paste0('"', choices, '"', collapse = ", "),
+        "."
+      )
+    )
+  }
+  i - 1L
+}
+
+ztm_check_flag <- function(x, arg) {
+  if (!is.logical(x) || length(x) != 1L || is.na(x)) {
+    ztm_invalid_argument(arg, paste0("`", arg, "` must be TRUE or FALSE."))
+  }
+  x
 }
 
 # A document as a raw vector of UTF-8 bytes: a string is translated to

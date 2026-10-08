@@ -170,7 +170,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 3 — The table model and the grammar · L
 
-**Status:** in review (branch `stage-3-grammar`).
+**Status:** done 2026-10-08 (#16, closes #5).
 
 **What actually happened.** The parser (`src/ztm_parse.c`) passed every toml-test case of both versions on its first build: 1.0.0 valid 205/205 and invalid 474/474, 1.1.0 valid 214/214 and invalid 467/467. The table model is a node tree in definition order (which the build phase will walk, so the "event list" is the tree) plus a hash of (parent, key); tables carry one of four states (implicit, explicit, dotted, inline), and each TOML rule is a check on them. The suite settled two rules the spec leaves to examples: a dotted key may pass through a table a header only implied (and so defines it), but not through one a header defined (`append-with-dotted-keys-*`). Five of the planned guards turned out to be backed by a later check (zufast, or the span-end test), so removing them changed nothing: they stay as unmarked defence in depth, and the mutation check covers the 40 that are load-bearing. The 10 MB dotted-key hostile input is `zutoml_depth_limit`, not `zutoml_string_limit` as planned: its parts are short, and each one nests. `ztm_value` became a union to keep a node near 100 bytes.
 
@@ -197,7 +197,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 4 — Build phase: the lattice, bigints, data frames · M
 
-**Status:** not started.
+**Status:** in review (branch `stage-4-build`).
+
+**What actually happened.** `src/ztm_build.c` walks the check phase's node tree (the "event list" is the tree) and writes typed vectors directly: the lattice decides an array's kind before any allocation, so a simplified array never passes through a list. Four contract points were settled: `max_depth` is capped at 1023, as in `zucbor`, since the builder recurses once per level; `"keep"` text is zufast's canonical RFC 3339 (so `+00:00` is `Z` and `.5` is `.500`); a `toml_bigint` joins only integers; and the data frame cell budget is `zujson`'s option, `zutoml.max_df_cells`, not a `max_cells` argument. Local date-times reach the session's zone in R, since R has no C API for it. toml-test's JSON lists keys sorted, so conformance compares tables by key; definition order is `test-parse.R`'s. Four valid cases hold U+0000 and are the only ones `toml_parse()` refuses (`test-conformance.R` enumerates them). `gctorture2(step = 1)` was clean over 80 parses locally.
 
 **Goal:** `toml_parse()` returns the §6 value for every valid document.
 

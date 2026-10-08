@@ -16,7 +16,12 @@
 ## Notes
 
 The package's C code is its own; nothing is bundled. It uses the header-only
-'zufast' package through `LinkingTo`.
+'zufast' package (by the same maintainer, on CRAN) through `LinkingTo`.
+
+## Method references
+
+The package implements the TOML specification, cited in the Description
+(<https://toml.io/en/v1.1.0>); there is no published paper describing it.
 
 The tests include the 'toml-test' conformance suite (MIT licence, the TOML
 authors), about 130 KB under `tests/testthat/toml-test/`, with its licence

@@ -1,4 +1,5 @@
-#' @keywords internal
+#' @seealso [toml_parse()] to read, [toml_emit()] to write, and
+#'   `vignette("zutoml")` for a tour.
 "_PACKAGE"
 
 ## usethis namespace: start

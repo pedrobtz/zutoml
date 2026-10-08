@@ -7,6 +7,12 @@
 - [`toml_validate()`](https://pedrobtz.github.io/zutoml/reference/toml_validate.md)
   : Check that a document is valid TOML
 
+## Write TOML
+
+- [`toml_emit()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md)
+  [`toml_write()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md)
+  : Write R values as TOML
+
 ## Values
 
 - [`toml_bigint()`](https://pedrobtz.github.io/zutoml/reference/toml_bigint.md)

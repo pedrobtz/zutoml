@@ -19,6 +19,7 @@ toml_parse(
   big_integers = c("bigint", "double", "error"),
   datetimes = c("convert", "keep"),
   local_time = c("character", "difftime"),
+  positions = FALSE,
   max_size = 64 * 1024^2,
   max_depth = 128L,
   max_items = 1e+06,
@@ -69,6 +70,20 @@ toml_parse(
 
   `"character"` (the default) returns a local time as its text;
   `"difftime"` as seconds since midnight.
+
+- positions:
+
+  If `TRUE`, the result carries an attribute `"toml_positions"`: a data
+  frame with one row per key and array element, in the order of the
+  parsed value, giving its `path` in TOML key syntax (`servers[2].ip`,
+  with keys quoted where TOML needs it, and array elements numbered from
+  1), its `type` (`"table"`, `"inline_table"`, `"array_of_tables"`,
+  `"array"`, `"string"`, `"integer"`, `"float"`, `"bool"`, `"datetime"`,
+  `"datetime-local"`, `"date-local"` or `"time-local"`), and the `line`,
+  `column` (1-based, in characters) and byte `offset` (0-based) where it
+  is defined: a key's position for a keyed value, the `[[header]]` for
+  each table of an array of tables. Code that checks a configuration can
+  then say where a value is wrong.
 
 - max_size:
 
@@ -162,4 +177,10 @@ toml_parse(doc, data_frame = TRUE)$products
 #>     name       sku color
 #> 1 Hammer 738594937  <NA>
 #> 2   Nail 284758393  gray
+
+# Where each value is, for messages about the document:
+pos <- attr(toml_parse(doc, positions = TRUE), "toml_positions")
+pos[pos$path == "owner.dob", ]
+#>        path     type line column offset
+#> 8 owner.dob datetime    7      1     88
 ```

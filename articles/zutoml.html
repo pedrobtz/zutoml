@@ -199,12 +199,44 @@ every platform, and reads back:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="va">config</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">servers</span>, <span class="va">config</span><span class="op">$</span><span class="va">servers</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>Markers say how one value is written. A <code>Cargo.toml</code>
+dependency, for example, is usually an inline table:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>dependencies <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  serde <span class="op">=</span> <span class="fu"><a href="../reference/toml-markers.html">toml_inline</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>version <span class="op">=</span> <span class="st">"1.0"</span>, features <span class="op">=</span> <span class="st">"derive"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  rand <span class="op">=</span> <span class="st">"0.8"</span></span>
+<span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [dependencies]</span></span>
+<span><span class="co">#&gt; serde = { version = "1.0", features = "derive" }</span></span>
+<span><span class="co">#&gt; rand = "0.8"</span></span></code></pre></div>
+<p><code><a href="../reference/toml-markers.html">toml_literal()</a></code> writes strings as literal strings, which
+need no escapes (Windows paths, regular expressions), and
+<code><a href="../reference/toml-markers.html">toml_multiline()</a></code> as multi-line strings.</p>
+</div>
+<div class="section level2">
+<h2 id="pointing-at-the-value-at-fault">Pointing at the value at fault<a class="anchor" aria-label="anchor" href="#pointing-at-the-value-at-fault"></a>
+</h2>
+<p>With <code>positions = TRUE</code>, the result records where each key
+is, so a check on a configuration can say where the problem is:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cfg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"[server]\nhost = 'localhost'\nport = 99999\n"</span>, positions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">pos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">cfg</span>, <span class="st">"toml_positions"</span><span class="op">)</span></span>
+<span><span class="va">pos</span></span>
+<span><span class="co">#&gt;          path    type line column offset</span></span>
+<span><span class="co">#&gt; 1      server   table    1      2      1</span></span>
+<span><span class="co">#&gt; 2 server.host  string    2      1      9</span></span>
+<span><span class="co">#&gt; 3 server.port integer    3      1     28</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="va">cfg</span><span class="op">$</span><span class="va">server</span><span class="op">$</span><span class="va">port</span> <span class="op">&gt;</span> <span class="fl">65535</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">at</span> <span class="op">&lt;-</span> <span class="va">pos</span><span class="op">[</span><span class="va">pos</span><span class="op">$</span><span class="va">path</span> <span class="op">==</span> <span class="st">"server.port"</span>, <span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"server.port at line "</span>, <span class="va">at</span><span class="op">$</span><span class="va">line</span>, <span class="st">", column "</span>, <span class="va">at</span><span class="op">$</span><span class="va">column</span>, <span class="st">" is above 65535"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="co">#&gt; server.port at line 3, column 1 is above 65535</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="when-things-go-wrong">When things go wrong<a class="anchor" aria-label="anchor" href="#when-things-go-wrong"></a>
 </h2>
 <p>Every error has a class, and parse errors say where:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">err</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"[server]\nport = 80\nport = 8080\n"</span><span class="op">)</span>,</span>
 <span>  zutoml_parse_error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span></span>

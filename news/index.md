@@ -17,6 +17,15 @@
   write a named list as TOML: deterministic text, tables as `[headers]`,
   lists of tables and data frames as arrays of tables, and errors that
   name the key path of the value at fault.
+- `toml_parse(positions = TRUE)` records where every key and array
+  element is defined (path, type, line, column, offset), so code that
+  checks a configuration can point at the value at fault.
+- [`toml_inline()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md),
+  [`toml_literal()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+  and
+  [`toml_multiline()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+  mark how one value is written by
+  [`toml_emit()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md).
 - [`toml_validate()`](https://pedrobtz.github.io/zutoml/reference/toml_validate.md)
   checks that a document is valid TOML, within size, depth, item and
   string limits, and with `error = TRUE` says why and where (`line`,

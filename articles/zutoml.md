@@ -164,6 +164,47 @@ identical(toml_parse(toml_emit(config))$servers, config$servers)
 #> [1] TRUE
 ```
 
+Markers say how one value is written. A `Cargo.toml` dependency, for
+example, is usually an inline table:
+
+``` r
+
+cat(toml_emit(list(dependencies = list(
+  serde = toml_inline(list(version = "1.0", features = "derive")),
+  rand = "0.8"
+))))
+#> [dependencies]
+#> serde = { version = "1.0", features = "derive" }
+#> rand = "0.8"
+```
+
+[`toml_literal()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+writes strings as literal strings, which need no escapes (Windows paths,
+regular expressions), and
+[`toml_multiline()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+as multi-line strings.
+
+## Pointing at the value at fault
+
+With `positions = TRUE`, the result records where each key is, so a
+check on a configuration can say where the problem is:
+
+``` r
+
+cfg <- toml_parse("[server]\nhost = 'localhost'\nport = 99999\n", positions = TRUE)
+pos <- attr(cfg, "toml_positions")
+pos
+#>          path    type line column offset
+#> 1      server   table    1      2      1
+#> 2 server.host  string    2      1      9
+#> 3 server.port integer    3      1     28
+if (cfg$server$port > 65535) {
+  at <- pos[pos$path == "server.port", ]
+  message("server.port at line ", at$line, ", column ", at$column, " is above 65535")
+}
+#> server.port at line 3, column 1 is above 65535
+```
+
 ## When things go wrong
 
 Every error has a class, and parse errors say where:

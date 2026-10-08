@@ -75,6 +75,10 @@ files.
 - [`toml_emit()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md)
   [`toml_write()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md)
   : Write R values as TOML
+- [`toml_inline()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+  [`toml_literal()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+  [`toml_multiline()`](https://pedrobtz.github.io/zutoml/reference/toml-markers.md)
+  : Say how one value is written as TOML
 
 ## Values
 

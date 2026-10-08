@@ -17,7 +17,14 @@ suite, for TOML 1.0.0 and 1.1.0.
 
 ## Installation
 
-zutoml is not on CRAN yet. Install the development version from GitHub:
+Install zutoml from CRAN:
+
+``` r
+
+install.packages("zutoml")
+```
+
+or the development version from GitHub:
 
 ``` r
 

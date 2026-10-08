@@ -1,0 +1,77 @@
+#!/usr/bin/env Rscript
+# Regenerate the toml-test conformance fixtures (roadmap Stage 0, design
+# section 15). Usage, from the package root:
+#
+#   tools/update-fixtures [output-dir]      default: tests/testthat/toml-test
+#
+# This is the only writer of that directory: nothing there is hand-edited.
+# tools/run-conformance regenerates into a temporary directory and fails if
+# the result differs from what is committed. Tests read only the committed
+# files and never touch the network. Needs network access and R >= 4.5
+# (tools::sha256sum).
+#
+# The directory is tests/testthat/toml-test/, not .../fixtures/toml-test/:
+# the suite's longest path would then exceed the 100 bytes R CMD check
+# accepts as portable inside the tarball.
+#
+# The source, pinned by tag and commit (toml-lang/toml-test, MIT):
+SUITE_TAG <- "v2.2.0"
+SUITE_COMMIT <- "ce08da1ddb075d1c7596d663c7fcba9a2ae02c5c"
+
+args <- commandArgs(trailingOnly = TRUE)
+out <- if (length(args)) args[[1]] else file.path("tests", "testthat", "toml-test")
+
+tarball <- tempfile(fileext = ".tar.gz")
+utils::download.file(
+  sprintf("https://github.com/toml-lang/toml-test/archive/%s.tar.gz", SUITE_COMMIT),
+  tarball, quiet = TRUE, mode = "wb"
+)
+src <- tempfile()
+utils::untar(tarball, exdir = src)
+root <- list.dirs(src, recursive = FALSE)[[1]]
+tests <- file.path(root, "tests")
+
+# The suite's own lists say which files belong to which TOML version. Both
+# are kept: design section 18 Q5 decides at Stage 1 whether 1.1.0 is admitted.
+lists <- c("1.0.0" = "files-toml-1.0.0", "1.1.0" = "files-toml-1.1.0")
+members <- lapply(lists, function(f) readLines(file.path(tests, f), warn = FALSE))
+paths <- sort(unique(unlist(members, use.names = FALSE)))
+stopifnot(
+  length(members[["1.0.0"]]) == 884L,
+  all(grepl("^(valid|invalid)/[A-Za-z0-9._/-]+\\.(toml|json)$", paths)),
+  all(file.exists(file.path(tests, paths)))
+)
+
+unlink(out, recursive = TRUE)
+for (d in unique(dirname(paths))) dir.create(file.path(out, d), recursive = TRUE, showWarnings = FALSE)
+ok <- file.copy(file.path(tests, paths), file.path(out, paths), copy.date = FALSE)
+stopifnot(all(ok))
+stopifnot(file.copy(file.path(root, "LICENSE"), file.path(out, "LICENSE")))
+
+toml <- vapply(paths, function(p) {
+  paste(names(lists)[vapply(members, function(m) p %in% m, TRUE)], collapse = ";")
+}, "", USE.NAMES = FALSE)
+manifest <- data.frame(
+  path = paths,
+  toml = toml,
+  sha256 = unname(tools::sha256sum(file.path(out, paths))),
+  stringsAsFactors = FALSE
+)
+utils::write.table(manifest, file.path(out, "manifest.tsv"),
+                   sep = "\t", quote = FALSE, row.names = FALSE)
+writeLines(c(SUITE_TAG, SUITE_COMMIT), file.path(out, "VERSION"))
+writeLines(c(
+  "# toml-test",
+  "",
+  sprintf("The [toml-test](https://github.com/toml-lang/toml-test) conformance suite at"),
+  sprintf("tag `%s` (commit `%s`), MIT-licensed; the licence is in", SUITE_TAG, substr(SUITE_COMMIT, 1, 8)),
+  "`LICENSE` beside this file. Used by `test-conformance.R` (design section 15).",
+  "",
+  "Every file here is written by `tools/update-fixtures`; do not edit them by hand.",
+  "`manifest.tsv` lists each file with the TOML versions whose case lists name",
+  "it (`toml`) and its SHA-256. `tools/run-conformance --fixtures-only` fails if",
+  "this directory differs from a fresh fetch. Tests never use the network."
+), file.path(out, "README.md"))
+
+cat(sprintf("toml-test %s: %d files (%d for TOML 1.0.0) written to %s\n",
+            SUITE_TAG, length(paths), length(members[["1.0.0"]]), out))

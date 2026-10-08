@@ -1,0 +1,28 @@
+#!/bin/sh
+# Conformance against toml-test (design section 15). Run from the package
+# root; needs network access and R >= 4.5.
+#
+#   tools/run-conformance --fixtures-only
+#       The committed suite in tests/testthat/toml-test/ must equal a fresh
+#       fetch at the pinned tag (tools/update-fixtures).
+#
+# Stage 1 extends this to run every case through the check phase and print
+# counts by directory; until then --fixtures-only is the whole job.
+set -eu
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+tools/update-fixtures "$WORK/toml-test" > /dev/null
+if diff -r "$WORK/toml-test" tests/testthat/toml-test > /dev/null; then
+  echo "==> tests/testthat/toml-test matches toml-test $(head -1 "$WORK/toml-test/VERSION")"
+else
+  echo "FAIL: tests/testthat/toml-test differs from a fresh fetch" >&2
+  diff -rq "$WORK/toml-test" tests/testthat/toml-test >&2 || true
+  exit 1
+fi
+
+case "${1:-}" in
+  --fixtures-only) exit 0 ;;
+  *) echo "the check-phase run arrives with roadmap Stage 1" >&2; exit 0 ;;
+esac

@@ -34,8 +34,9 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.0.0.9000" id="zutoml-0009000">zutoml 0.0.0.9000<a class="anchor" aria-label="anchor" href="#zutoml-0009000"></a></h2>
-<ul><li>Development: the lexer, the <code>toml-test</code> conformance runner and scalar values through ‘zufast’ (roadmap Stages 1 and 2). Nothing is exported yet.</li>
-<li>TOML 1.1.0 is read by default; <code>version = "1.0.0"</code> will read strictly (design D17).</li>
+<ul><li>
+<code><a href="../reference/toml_validate.html">toml_validate()</a></code> checks that a document is valid TOML, within size, depth, item and string limits, and with <code>error = TRUE</code> says why and where (<code>line</code>, <code>column</code>, <code>offset</code> and <code>kind</code> on a classed condition). It passes every case of the <code>toml-test</code> suite for TOML 1.0.0 and 1.1.0.</li>
+<li>TOML 1.1.0 is read by default; <code>version = "1.0.0"</code> reads strictly (design D17).</li>
 </ul></div>
   </main></div>
 

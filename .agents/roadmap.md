@@ -197,7 +197,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 4 — Build phase: the lattice, bigints, data frames · M
 
-**Status:** in review (branch `stage-4-build`).
+**Status:** done 2026-10-08 (#17, closes #6).
 
 **What actually happened.** `src/ztm_build.c` walks the check phase's node tree (the "event list" is the tree) and writes typed vectors directly: the lattice decides an array's kind before any allocation, so a simplified array never passes through a list. Four contract points were settled: `max_depth` is capped at 1023, as in `zucbor`, since the builder recurses once per level; `"keep"` text is zufast's canonical RFC 3339 (so `+00:00` is `Z` and `.5` is `.500`); a `toml_bigint` joins only integers; and the data frame cell budget is `zujson`'s option, `zutoml.max_df_cells`, not a `max_cells` argument. Local date-times reach the session's zone in R, since R has no C API for it. toml-test's JSON lists keys sorted, so conformance compares tables by key; definition order is `test-parse.R`'s. Four valid cases hold U+0000 and are the only ones `toml_parse()` refuses (`test-conformance.R` enumerates them). `gctorture2(step = 1)` was clean over 80 parses locally.
 
@@ -222,7 +222,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 5 — The emitter · M
 
-**Status:** not started.
+**Status:** in review (branch `stage-5-emitter`).
+
+**What actually happened.** `src/ztm_emit.c` writes the whole document in one pass into an `R_alloc()` buffer; local `POSIXct` values reach it as wall-clock text from R, for the same reason local date-times are moved into the session's zone in R when parsing. §18 Q1–Q3 were decided as recommended (D18). Two rules the design left open were settled: classes are an allow-list (an `integer64`, a double with a class, would otherwise be written as garbage digits; a `POSIXlt`, a named list, as a table), and `NA` cells of a data frame are missing keys, so `data_frame = TRUE` round-trips. The reference decoder is BurntSushi/toml's `toml-test-decoder` (v1.6.0), with Python's `tomllib` as a second reader; all 412 emitted documents (every valid case of both versions R can hold) are accepted by both. toml-test's encoder mode is not a gate: D4 writes whole doubles as integers, which that mode reports as type mismatches (design §15).
 
 **Goal:** `toml_emit()` and `toml_write()` write §7's text under §8's rules, and the suite accepts it.
 

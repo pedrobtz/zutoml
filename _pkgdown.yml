@@ -13,6 +13,9 @@ reference:
     contents:
       - toml_parse
       - toml_validate
+  - title: Write TOML
+    contents:
+      - toml_emit
   - title: Values
     contents:
       - toml_bigint

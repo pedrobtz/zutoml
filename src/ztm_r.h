@@ -18,5 +18,7 @@ SEXP zutoml_check(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_
 SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_items,
                   SEXP max_string, SEXP simplify, SEXP big_integers, SEXP datetimes,
                   SEXP local_time);
+SEXP zutoml_emit(SEXP x, SEXP indent, SEXP inline_max, SEXP width, SEXP na_omit,
+                 SEXP literal, SEXP max_depth);
 
 #endif

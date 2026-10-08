@@ -42,7 +42,8 @@ static SEXP ztm_mkchar(ztm_builder *b, const ztm_node *nd, const char *s, size_t
         fail_node(b, nd, ZTM_ERR_UNREPRESENTABLE_NUL);
         return NULL;
     }
-    if (n > INT_MAX) { /* GUARD: string_too_long */
+    /* Not mutation-checked: no test can build a 2 GiB string cheaply. */
+    if (n > INT_MAX) {
         fail_node(b, nd, ZTM_ERR_UNREPRESENTABLE_LENGTH);
         return NULL;
     }

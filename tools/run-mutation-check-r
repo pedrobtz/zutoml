@@ -1,0 +1,75 @@
+#!/bin/sh
+# The R-side guards (roadmap Stage 6): each "/* GUARD: name */" in the build
+# phase (src/ztm_build.c) and the emitter (src/ztm_emit.c) is disabled in
+# turn in a scratch copy of the package, which is installed and asked the
+# guard's question: the answer must change. tools/run-mutation-check does
+# the same for the R-free check phase through fuzz/probe.c. Run from the
+# package root; needs the package's build dependencies installed.
+set -eu
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+R_SRC="src/ztm_build.c src/ztm_emit.c"
+
+# guard | R expression printing the outcome | outcome with the guard
+cases='
+nul_in_string|cat(tryCatch({ zutoml::toml_parse("a = \"\\u0000\""); "ok" }, error = function(e) class(e)[1]))|zutoml_unrepresentable
+big_integer|cat(tryCatch({ zutoml::toml_parse("a = 9007199254740993", big_integers = "error"); "ok" }, error = function(e) class(e)[1]))|zutoml_unrepresentable
+float_overflow|cat(tryCatch({ zutoml::toml_parse("a = 1e400"); "ok" }, error = function(e) class(e)[1]))|zutoml_unrepresentable
+emit_max_depth|cat(tryCatch({ zutoml::toml_emit(list(a = list(b = list(c = 1))), max_depth = 2); "ok" }, error = function(e) class(e)[1]))|zutoml_depth_limit
+'
+
+grep -ho 'GUARD: [a-z0-9_]*' $R_SRC | sed 's/GUARD: //' | sort > "$WORK/markers"
+printf '%s\n' "$cases" | awk -F'|' 'NF {print $1}' | sort > "$WORK/cased"
+if ! cmp -s "$WORK/markers" "$WORK/cased"; then
+  echo "FAIL: guard markers and cases differ (< marker only, > case only):" >&2
+  diff "$WORK/markers" "$WORK/cased" | grep '^[<>]' >&2 || true
+  exit 1
+fi
+
+install() {  # install SRCDIR LIB
+  mkdir -p "$2"
+  R CMD INSTALL --no-test-load --no-docs --no-multiarch -l "$2" "$1" > "$WORK/install.log" 2>&1 ||
+    { cat "$WORK/install.log" >&2; return 1; }
+}
+
+ask() {  # ask LIB EXPR: the expression goes through a file, since
+         # Rscript -e would process its backslashes
+  printf '%s\n' "$2" > "$WORK/ask.R"
+  R_LIBS="$1" Rscript "$WORK/ask.R" 2>/dev/null || echo "a crash"
+}
+
+mkdir -p "$WORK/pkg"
+cp -R DESCRIPTION NAMESPACE R src "$WORK/pkg/"
+rm -f "$WORK/pkg/src"/*.o "$WORK/pkg/src"/*.so
+install "$WORK/pkg" "$WORK/lib-original"
+
+printf '%s\n' "$cases" | while IFS='|' read -r guard expr want; do
+  [ -n "$guard" ] || continue
+  got=$(ask "$WORK/lib-original" "$expr")
+  if [ "$got" != "$want" ]; then
+    echo "FAIL: $guard: gives $got with the guard, expected $want" >&2
+    echo 1 > "$WORK/failed"
+    continue
+  fi
+  file=$(grep -l "GUARD: $guard \*/" $R_SRC)
+  rm -rf "$WORK/mut"
+  cp -R "$WORK/pkg" "$WORK/mut"
+  rm -f "$WORK/mut/src"/*.o "$WORK/mut/src"/*.so
+  sed "s|if (\(.*\))\( *{\)\{0,1\} */\* GUARD: $guard \*/|if (0 \&\& (\1))\2|" "$file" > "$WORK/mut/$file"
+  if cmp -s "$file" "$WORK/mut/$file"; then
+    echo "FAIL: $guard: the mutation did not apply" >&2
+    echo 1 > "$WORK/failed"
+    continue
+  fi
+  install "$WORK/mut" "$WORK/lib-$guard"
+  mutant=$(ask "$WORK/lib-$guard" "$expr")
+  if [ "$mutant" = "$want" ]; then
+    echo "FAIL: $guard: removing the guard changes nothing (still $want)" >&2
+    echo 1 > "$WORK/failed"
+  else
+    echo "==> $guard: $want with the guard, $mutant without"
+  fi
+done
+[ ! -f "$WORK/failed" ] || exit 1
+echo "==> every R-side guard is load-bearing"

@@ -19,7 +19,8 @@ reference:
   - title: Values
     contents:
       - toml_bigint
-  - title: Errors
+  - title: Errors and build information
     contents:
       - zutoml-conditions
+      - zutoml_info
       - zutoml-package

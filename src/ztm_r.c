@@ -8,6 +8,7 @@
 
 #include <zufast/datetime.h>
 #include <zufast/number.h>
+#include <zufast/version.h>
 
 #include "ztm_build.h"
 #include "ztm_emit.h"
@@ -276,5 +277,21 @@ SEXP zutoml_emit(SEXP x, SEXP indent, SEXP inline_max, SEXP width, SEXP na_omit,
     SET_VECTOR_ELT(out, 3, res.path ? Rf_mkString(res.path) : Rf_ScalarString(NA_STRING));
     SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(res.dropped));
     UNPROTECT(2);
+    return out;
+}
+
+/* zutoml_build_info(): what zutoml_info() reports from the compiled code. */
+SEXP zutoml_build_info(void)
+{
+    static const char *names[] = {"zufast", "max_depth_cap", "ndebug"};
+    SEXP out = PROTECT(mk_named_list(3, names));
+    SET_VECTOR_ELT(out, 0, Rf_mkString(ZUFAST_VERSION));
+    SET_VECTOR_ELT(out, 1, Rf_ScalarInteger(ZTM_MAX_DEPTH_CAP));
+#ifdef NDEBUG
+    SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(TRUE));
+#else
+    SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(FALSE));
+#endif
+    UNPROTECT(1);
     return out;
 }

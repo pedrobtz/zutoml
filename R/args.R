@@ -26,7 +26,7 @@ ztm_check_limit <- function(x, arg, allow_inf = TRUE, max = 2^63) {
 
 # max_depth is capped (ZTM_MAX_DEPTH_CAP in src/ztm_check.h): the build
 # phase recurses once per level (design section 12).
-ztm_max_depth_cap <- 1023
+ztm_max_depth_cap <- 1023 # test-info.R checks it against ZTM_MAX_DEPTH_CAP
 
 ztm_check_depth <- function(x) {
   ztm_check_limit(x, "max_depth", allow_inf = FALSE, max = ztm_max_depth_cap)

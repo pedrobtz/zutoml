@@ -15,6 +15,7 @@ on:
       - '.agents/**'
       - 'docs/**'
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
       - '**.md'
       - 'vignettes/**'
@@ -30,6 +31,10 @@ name: native-checks
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   # UBSan over the whole suite on a runner (clang and gcc), plus R CMD check
   # in the R-hub ASan containers. -UNDEBUG rides in extra-ubsan-checks, which
@@ -39,9 +44,12 @@ jobs:
     with:
       asan: true
       extra-ubsan-checks: -UNDEBUG
+      profile: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && 'quick' || 'full' }}
 
   valgrind:
     uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@v1
+    with:
+      profile: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && 'quick' || 'full' }}
 
   lto:
     uses: pedrobtz/r-actions/.github/workflows/lto.yml@v1
@@ -58,8 +66,16 @@ jobs:
       env: |
         ZUTOML_SKIP_HEAVY=true
 
+  analyzers:
+    uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@v1
+
   # Blocking from the first run: the C code is new, so any finding is ours.
+  # zufast (LinkingTo) is not on CRAN yet, and the rchk image installs only
+  # from CRAN and Bioconductor: github-packages installs it into the image
+  # first. Drop that input once zufast is on CRAN.
   rchk:
     uses: pedrobtz/r-actions/.github/workflows/rchk.yml@v1
     with:
       fail-on-findings: true
+      github-packages: |
+        pedrobtz/zufast

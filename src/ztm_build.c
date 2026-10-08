@@ -134,6 +134,15 @@ static SEXP bigint_text(int64_t i)
     return Rf_mkCharLen(out, (int) k);
 }
 
+/* x's attribute `name` set to the string `value`, with the new string
+ * protected across Rf_setAttrib(), which may allocate. */
+static void set_string_attr(SEXP x, const char *name, const char *value)
+{
+    SEXP v = PROTECT(Rf_mkString(value));
+    Rf_setAttrib(x, Rf_install(name), v);
+    UNPROTECT(1);
+}
+
 static void set_class2(SEXP x, const char *a, const char *b2)
 {
     SEXP cls = PROTECT(Rf_allocVector(STRSXP, b2 ? 2 : 1));
@@ -158,8 +167,7 @@ static void dress(ztm_builder *b, SEXP x, kind k)
             set_class2(x, "POSIXct", "POSIXt");
             /* "<local>" marks a wall-clock time for R to move into the
              * session's zone; R replaces it with "". */
-            Rf_setAttrib(x, Rf_install("tzone"),
-                         Rf_mkString(k == K_DATETIME ? "UTC" : "<local>"));
+            set_string_attr(x, "tzone", k == K_DATETIME ? "UTC" : "<local>");
             if (k == K_LOCAL_DATETIME)
                 b->has_local = 1;
         }
@@ -171,7 +179,7 @@ static void dress(ztm_builder *b, SEXP x, kind k)
     case K_LOCAL_TIME:
         if (b->datetimes == ZTM_DATETIMES_CONVERT && b->local_time == ZTM_LOCAL_TIME_DIFFTIME) {
             set_class2(x, "difftime", NULL);
-            Rf_setAttrib(x, Rf_install("units"), Rf_mkString("secs"));
+            set_string_attr(x, "units", "secs");
         }
         break;
     default:
@@ -318,14 +326,14 @@ static SEXP build_list(ztm_builder *b, uint32_t idx)
 
 static void mark_asis(SEXP x)
 {
-    SEXP old = Rf_getAttrib(x, R_ClassSymbol);
+    SEXP old = PROTECT(Rf_getAttrib(x, R_ClassSymbol));
     R_xlen_t n = Rf_isNull(old) ? 0 : XLENGTH(old);
     SEXP cls = PROTECT(Rf_allocVector(STRSXP, n + 1));
     SET_STRING_ELT(cls, 0, Rf_mkChar("AsIs"));
     for (R_xlen_t i = 0; i < n; i++)
         SET_STRING_ELT(cls, i + 1, STRING_ELT(old, i));
     Rf_setAttrib(x, R_ClassSymbol, cls);
-    UNPROTECT(1);
+    UNPROTECT(2);
 }
 
 /* The kind an array's elements share, by the lattice of design section 6.3,

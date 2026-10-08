@@ -2,17 +2,20 @@
 
 ## Authors
 
-- **First Last**. Author, maintainer.
+- **Pedro Baltazar**. Author, maintainer, copyright holder.
 
 ## Citation
 
-Last F (2026). *zutoml: What the Package Does (One Line, Title Case)*. R
-package version 0.0.0.9000, <https://pedrobtz.github.io/zutoml/>.
+Source:
+[`DESCRIPTION`](https://github.com/pedrobtz/zutoml/blob/main/DESCRIPTION)
+
+Baltazar P (2026). *zutoml: Read and Write 'TOML' Documents*. R package
+version 0.0.0.9000, <https://github.com/pedrobtz/zutoml>.
 
     @Manual{,
-      title = {zutoml: What the Package Does (One Line, Title Case)},
-      author = {First Last},
+      title = {zutoml: Read and Write 'TOML' Documents},
+      author = {Pedro Baltazar},
       year = {2026},
       note = {R package version 0.0.0.9000},
-      url = {https://pedrobtz.github.io/zutoml/},
+      url = {https://github.com/pedrobtz/zutoml},
     }

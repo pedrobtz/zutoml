@@ -1,0 +1,4 @@
+# R/zu_source.R is copied verbatim from zuxml (design section 10): fix it
+# there and re-copy, never reformat it here.
+[format]
+exclude = ["R/zu_source.R"]

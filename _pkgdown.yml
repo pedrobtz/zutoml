@@ -12,6 +12,7 @@ reference:
   - title: Read TOML
     contents:
       - toml_parse
+      - toml_read
       - toml_validate
   - title: Write TOML
     contents:
@@ -24,3 +25,9 @@ reference:
       - zutoml-conditions
       - zutoml_info
       - zutoml-package
+
+articles:
+  - title: Using zutoml
+    navbar: ~
+    contents:
+      - zutoml

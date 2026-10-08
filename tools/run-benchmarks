@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs tools/benchmarks.R (design section 16). Needs bench, RcppTOML and
+# zuyaml; set R_LIBS to a library holding them if they are not installed.
+# Not a CI gate: record the numbers in design section 16.
+set -eu
+Rscript tools/benchmarks.R

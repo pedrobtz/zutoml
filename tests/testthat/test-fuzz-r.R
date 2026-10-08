@@ -16,10 +16,14 @@ test_that("mutated toml-test documents through every parse and emit option", {
       list(data_frame = TRUE, local_time = "difftime", big_integers = "error"),
       list(max_depth = 3, max_items = 50, max_string = 20)
     )) {
-      v <- tryCatch(do.call(toml_parse, c(list(x), args)), zutoml_error = function(e) NULL)
+      v <- tryCatch(
+        do.call(toml_parse, c(list(x), args)),
+        zutoml_error = function(e) NULL
+      )
       if (is.list(v)) {
         tryCatch(toml_emit(v), zutoml_error = function(e) NULL)
-        tryCatch(toml_emit(v, na = "omit", strings = "literal", inline = 3, width = 8),
+        tryCatch(
+          toml_emit(v, na = "omit", strings = "literal", inline = 3, width = 8),
           zutoml_error = function(e) NULL,
           warning = function(w) NULL
         )
@@ -28,14 +32,19 @@ test_that("mutated toml-test documents through every parse and emit option", {
   }
   for (x in seeds) {
     exercise(x)
-    for (n in unique(round(seq(0, length(x), length.out = 6)))) exercise(x[seq_len(n)])
+    for (n in unique(round(seq(0, length(x), length.out = 6)))) {
+      exercise(x[seq_len(n)])
+    }
   }
   for (i in seq_len(20000)) {
     x <- seeds[[sample(length(seeds), 1L)]]
-    if (!length(x)) next
+    if (!length(x)) {
+      next
+    }
     for (k in seq_len(sample(1:4, 1L))) {
       at <- sample(length(x), 1L)
-      x <- switch(sample(3L, 1L),
+      x <- switch(
+        sample(3L, 1L),
         {
           x[at] <- as.raw(sample(0:255, 1L))
           x
@@ -55,8 +64,15 @@ test_that("generated values through every emit option", {
   withr::local_timezone("UTC")
   for (i in seq_len(500)) {
     x <- gen_table(6L)
-    for (args in list(list(), list(inline = 4, width = 5, strings = "literal"), list(max_depth = 2))) {
-      text <- tryCatch(do.call(toml_emit, c(list(x), args)), zutoml_error = function(e) NULL)
+    for (args in list(
+      list(),
+      list(inline = 4, width = 5, strings = "literal"),
+      list(max_depth = 2)
+    )) {
+      text <- tryCatch(
+        do.call(toml_emit, c(list(x), args)),
+        zutoml_error = function(e) NULL
+      )
       if (!is.null(text)) expect_true(toml_validate(text))
     }
   }

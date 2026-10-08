@@ -222,7 +222,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 5 — The emitter · M
 
-**Status:** in review (branch `stage-5-emitter`).
+**Status:** done 2026-10-08 (#18, closes #7).
 
 **What actually happened.** `src/ztm_emit.c` writes the whole document in one pass into an `R_alloc()` buffer; local `POSIXct` values reach it as wall-clock text from R, for the same reason local date-times are moved into the session's zone in R when parsing. §18 Q1–Q3 were decided as recommended (D18). Two rules the design left open were settled: classes are an allow-list (an `integer64`, a double with a class, would otherwise be written as garbage digits; a `POSIXlt`, a named list, as a table), and `NA` cells of a data frame are missing keys, so `data_frame = TRUE` round-trips. The reference decoder is BurntSushi/toml's `toml-test-decoder` (v1.6.0), with Python's `tomllib` as a second reader; all 412 emitted documents (every valid case of both versions R can hold) are accepted by both. toml-test's encoder mode is not a gate: D4 writes whole doubles as integers, which that mode reports as type mismatches (design §15).
 
@@ -246,7 +246,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 6 — Round trip, limits, fuzzing, mutation check · M
 
-**Status:** in review (branch `stage-6-hardening`).
+**Status:** done 2026-10-08 (#19, closes #8).
 
 **What actually happened.** The round-trip generator (`helper-generate.R`) found an emitter bug at once: a `Date` stored as integers (which `as.Date()` of an integer gives) was written as a plain integer, as were integer-backed `POSIXct` and `difftime`; fixed, with a regression test. The generator itself had to learn the losses of design §7.4 (a table's values before its sub-tables; numeric kinds that the lattice joins), which is what the section is for. The R-side mutation check first reported every guard as not load-bearing: the mutant copies carried stale object files that make thought current; it clears them now. The 2 GiB string guard is not mutation-checked, since no test can build one cheaply. `zutoml_info()` was in design §5 but in no stage; it landed here, where the sanitizer exercise wanted the depth cap. The heavy tests also skip on CRAN, to keep the suite under 15 s; every CI leg runs them.
 
@@ -269,7 +269,9 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 7 — Files, connections, documentation, benchmarks · S
 
-**Status:** not started.
+**Status:** in review (branch `stage-7-files`).
+
+**What actually happened.** `R/zu_source.R` is zuxml's, verbatim; `air.toml` excludes it from formatting so it stays so. `toml_write()` had landed with the emitter at Stage 5. The benchmarks met both targets with room (parse 0.40× `RcppTOML`, emit 1.14× `zuyaml`; design §16); `zuyaml` writes no `Date` or `POSIXct`, so the emit benchmark uses date-times as text.
 
 **Goal:** the package reads from where users keep files, and is documented for CRAN.
 

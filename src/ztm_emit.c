@@ -164,12 +164,13 @@ static int is_table(SEXP x)
     return is_plain_list(x) && !Rf_isNull(Rf_getAttrib(x, R_NamesSymbol));
 }
 
-/* An array of tables: a data frame, or an unnamed list of one or more
- * tables, unless I() marks it as a plain array. */
+/* An array of tables: a data frame with rows, or an unnamed list of one or
+ * more tables, unless I() marks it as a plain array. A data frame with no
+ * rows has no tables to write, so it is an empty array: `key = []`. */
 static int is_aot(SEXP x)
 {
     if (is_df(x))
-        return 1;
+        return df_nrow(x) > 0;
     if (!is_plain_list(x) || is_table(x) || XLENGTH(x) == 0 || has_class(x, "AsIs"))
         return 0;
     for (R_xlen_t i = 0; i < XLENGTH(x); i++)

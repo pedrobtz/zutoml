@@ -116,6 +116,8 @@ test_that("7.2 arrays of tables, inline tables, and data frames", {
     list(a = list(data.frame(x = 1:2))),
     "a = [[{ x = 1 }, { x = 2 }]]\n"
   )
+  # A data frame with no rows is an empty array, not a missing key.
+  expect_toml(list(d = data.frame(x = integer())), "d = []\n")
 })
 
 test_that("inline = writes small flat tables inline", {

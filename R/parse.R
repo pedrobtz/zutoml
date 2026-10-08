@@ -41,6 +41,15 @@
 #' integer beyond 2^53 with `big_integers = "error"`.
 #'
 #' @inheritParams toml_validate
+#' @param select `NULL` (the default) returns the whole document. A path
+#'   returns only the value there: a string in TOML key syntax, as the
+#'   positions table writes it (`"tool.poetry"`; `'"a.b".c'` for a key with a
+#'   dot; `"products[2].name"` into arrays, counting from 1), or a vector of
+#'   two or more keys taken as they are (`c("tool", "poetry")`). The whole
+#'   document is still read and checked, since TOML lets a table be added to
+#'   anywhere in it, but only the selected part becomes R values. A path the
+#'   document does not have raises `zutoml_missing_key`, with `path` and
+#'   `found`, the part of the path that does exist.
 #' @param simplify `"preserve"` (the default) turns arrays whose elements
 #'   share a type into vectors; `"none"` makes every array a list.
 #' @param data_frame If `TRUE`, an array whose elements are all tables becomes
@@ -69,7 +78,8 @@
 #'   keyed value, the `[[header]]` for each table of an array of tables.
 #'   Code that checks a configuration can then say where a value is wrong.
 #'
-#' @return A named list, one element per top-level key.
+#' @return A named list, one element per top-level key; with `select`, the
+#'   value at that path.
 #' @seealso [toml_validate()] to check a document without building it;
 #'   [zutoml-conditions] for the errors.
 #' @export
@@ -97,11 +107,16 @@
 #'
 #' toml_parse(doc, data_frame = TRUE)$products
 #'
+#' # Only part of it:
+#' toml_parse(doc, select = "owner")
+#' toml_parse(doc, select = "products[2].color")
+#'
 #' # Where each value is, for messages about the document:
 #' pos <- attr(toml_parse(doc, positions = TRUE), "toml_positions")
 #' pos[pos$path == "owner.dob", ]
 toml_parse <- function(
   x,
+  select = NULL,
   version = c("1.1.0", "1.0.0"),
   simplify = c("preserve", "none"),
   data_frame = FALSE,
@@ -115,6 +130,7 @@ toml_parse <- function(
   max_string = 2^31 - 1
 ) {
   bytes <- ztm_input_bytes(x)
+  steps <- ztm_select_steps(select)
   simplify <- ztm_check_choice(simplify, c("preserve", "none"), "simplify") ==
     0L
   positions <- ztm_check_flag(positions, "positions")
@@ -136,14 +152,19 @@ toml_parse <- function(
     ),
     datetimes,
     ztm_check_choice(local_time, c("character", "difftime"), "local_time"),
-    positions
+    positions,
+    steps
   )
   if (!is.null(out$fault)) {
     ztm_raise_fault(out$fault)
   }
+  if (!is.null(out$missing)) {
+    ztm_raise_missing(steps, out$missing)
+  }
   value <- out$value
   if (out$has_local) {
-    value <- ztm_localise(value)
+    # rapply() walks lists; a selected scalar is wrapped for it.
+    value <- if (is.list(value)) ztm_localise(value) else ztm_localise(list(value))[[1L]]
   }
   if (data_frame) {
     value <- ztm_data_frames(value)

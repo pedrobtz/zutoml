@@ -157,6 +157,7 @@ Seven functions, three emit markers, one value class and the info function (the 
 ```r
 toml_parse(
   x,
+  select       = NULL,                        # D20: only the value at a path
   version      = c("1.1.0", "1.0.0"),         # D17
   simplify     = c("preserve", "none"),       # §6.3
   data_frame   = FALSE,                       # arrays of tables as frames
@@ -396,13 +397,15 @@ zutoml_error
 │   ├── zutoml_depth_limit
 │   ├── zutoml_item_limit
 │   └── zutoml_string_limit
-└── zutoml_io_error           the file or connection could not be read or written
+├── zutoml_io_error           the file or connection could not be read or written
+└── zutoml_missing_key        select = names a path the document does not have (D20)
 ```
 
 - `zutoml_parse_error` carries `line`, `column` (1-based, in characters, as editors count) and `offset` (0-based, in bytes), plus `kind`, one of the enumerator names the lexer and the table model use, so a test can assert the precise rule without matching English. As built through Stage 3: `invalid_utf8`, `control_character`, `bad_escape`, `bad_unicode_escape`, `unterminated_string`, `multiline_key`, `unexpected_character`, `invalid_value`, `invalid_integer`, `integer_range`, `invalid_float`, `invalid_datetime`, `unexpected_token`, `duplicate_key`, `table_redefined`, `inline_table_extended`. Limit errors carry `kind` too (`size_limit`, `depth_limit`, `item_limit`, `string_limit`).
 - `zutoml_limit_error` carries `limit` (the argument's name) and `limit_value`.
 - `zutoml_na_error` and `zutoml_unsupported_type` carry `path`, the key path of the offending value, as `a.b[3].c`.
 - `zutoml_invalid_argument` carries `arg`.
+- `zutoml_missing_key` carries `path`, the path asked for, and `found`, the part of it the document has (both canonical, as the positions table writes paths).
 
 Users see:
 
@@ -533,6 +536,7 @@ The emit benchmark uses the value parsed with `datetimes = "keep"`, since `zuyam
 | D14 | Info function | `zutoml_info()`, the package name (R1) |
 | D15 | Base prefixes and underscores | stripped by zutoml's lexer before zufast sees the digits (*verified 2026-10-08*) |
 | D16 | Where C raises | never; statuses by enumerator name, R raises (`zucbor`'s convention) |
+| D20 | Reading part of a document (Stage 7c) | `toml_parse(select = )` (and so `toml_read()`): a path string in the positions table's syntax, or a vector of keys; the whole document is still lexed, parsed and checked (a table may be added to anywhere, and validity is the whole document's), but the build phase starts at the selected node, so only that part becomes R values. A missing path is an error, `zutoml_missing_key`, never `NULL`: a typo in a path must not pass silently. With `positions = TRUE`, the table covers the selection, with absolute paths |
 | D19 | Positions and markers (Stage 7b) | `toml_parse(positions = TRUE)` attaches `"toml_positions"`: path (TOML key syntax, `[i]` 1-based for array elements), type (toml-test's names), line, column, offset for every key and array element, from positions the check phase already records; `toml_inline()`, `toml_literal()`, `toml_multiline()` mark how one value is written (§7.2a). Taken from BurntSushi/toml's metadata and from tomli-w, j-toml and tomlkit's per-value control; added before 0.1.0 because each is small and none needs a dependency |
 | D18 | Emitter choices (§18 Q1–Q3) | `inline = 0` by default; a `difftime` other than seconds within a day is refused, naming `as.numeric()`; a `POSIXct` in any zone but none is written in UTC with `Z` (decided at Stage 5, as recommended) |
 | D17 | TOML 1.1.0 | read by default; `version = c("1.1.0", "1.0.0")` on every reading function, `"1.0.0"` strict; the emitter writes 1.0-compatible text whatever the version (decided at Stage 1, 2026-10-08) |

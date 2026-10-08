@@ -51,6 +51,14 @@ them. An array becomes a vector when its elements share a type. A
 one-element array, such as `requires` above, is marked with `I()` so that
 writing it back gives an array again.
 
+To read only part of a document, give a path. The whole file is still
+checked, but only that part becomes R values:
+
+```{r}
+toml_parse(pyproject, select = "project.optional-dependencies.cli")
+toml_parse(pyproject, select = "project.authors[2].email")
+```
+
 An array of tables, like `authors`, is a list of named lists, or a data
 frame on request:
 

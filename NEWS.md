@@ -12,6 +12,9 @@
 * `toml_emit()` and `toml_write()` write a named list as TOML: deterministic
   text, tables as `[headers]`, lists of tables and data frames as arrays of
   tables, and errors that name the key path of the value at fault.
+* `toml_parse(select = "tool.poetry")`, and so `toml_read()`, returns only
+  the value at a path, building no R values for the rest of the document; a
+  path the document does not have raises `zutoml_missing_key`.
 * `toml_parse(positions = TRUE)` records where every key and array element
   is defined (path, type, line, column, offset), so code that checks a
   configuration can point at the value at fault.

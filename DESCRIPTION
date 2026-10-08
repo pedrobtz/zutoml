@@ -1,9 +1,11 @@
 Package: zutoml
 Title: Read and Write 'TOML' Documents
 Version: 0.1.0
-Authors@R: 
+Authors@R: c(
     person("Pedro", "Baltazar", , "pedrobtz@gmail.com",
-           role = c("aut", "cre", "cph"))
+           role = c("aut", "cre", "cph")),
+    person("TOML authors", role = "cph",
+           comment = "the 'toml-test' suite in tests/testthat/toml-test"))
 Description: Parses 'TOML' (Tom's Obvious Minimal Language) documents,
     versions 1.0.0 and 1.1.0 <https://toml.io/en/v1.1.0>, into ordinary R
     values, and writes R values as 'TOML'. Every 'TOML' type maps to one R

@@ -19,6 +19,7 @@ typedef struct {
     ztm_fault fault;       /* set when a value cannot be held (section 6.4) */
     int has_local;         /* a local date-time was built: R moves it into the
                               session's zone */
+    uint32_t root;         /* the node to build from: 0, or the selected one */
 } ztm_builder;
 
 /* The R value of the whole document, or R_NilValue with b->fault set. */
@@ -26,6 +27,10 @@ SEXP ztm_build(ztm_builder *b);
 
 /* The positions table of toml_parse(positions = TRUE): path, type, line,
  * column and offset of every key and array element, in document order. */
-SEXP ztm_positions(const ztm_doc *doc);
+SEXP ztm_positions(const ztm_doc *doc, uint32_t root);
+
+/* toml_parse(select = ): the node at a path, or ZTM_NONE with *failed set
+ * to the step that found nothing. */
+uint32_t ztm_select(const ztm_doc *doc, SEXP steps, R_xlen_t *failed);
 
 #endif

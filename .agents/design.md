@@ -483,7 +483,16 @@ The check phase builds without R (`-DZTM_STANDALONE`), so libFuzzer runs `fuzz/f
 
 ## 16. Performance targets
 
-Measured by `tools/run-benchmarks` and recorded here when Stage 7 runs them: parsing a 1 MB document of mixed tables within 2× of `RcppTOML`, and emission within 2× of `zuyaml`'s on the same R value. Configuration files are small; the targets exist so a regression is noticed, not because speed is the point. Benchmarks are not in CI.
+Measured by `tools/run-benchmarks`: parsing a 1 MB document of mixed tables within 2× of `RcppTOML`, and emission within 2× of `zuyaml`'s on the same R value. Configuration files are small; the targets exist so a regression is noticed, not because speed is the point. Benchmarks are not in CI.
+
+Recorded at Stage 7 (2026-10-08; R 4.6.1, macOS arm64; medians of `bench::mark()`):
+
+| | zutoml | comparison | ratio |
+|---|---|---|---|
+| parse a 1.01 MB document | 34.3 ms | `RcppTOML` 0.2.3: 86.1 ms | 0.40 |
+| emit the parsed value | 23.7 ms | `zuyaml`: 20.9 ms | 1.14 |
+
+The emit benchmark uses the value parsed with `datetimes = "keep"`, since `zuyaml` writes no `Date` or `POSIXct`.
 
 ---
 

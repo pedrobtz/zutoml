@@ -18,6 +18,9 @@
   checks that a document is valid TOML, within size, depth, item and
   string limits, and with `error = TRUE` says why and where (`line`,
   `column`, `offset` and `kind` on a classed condition).
+- [`zutoml_info()`](https://pedrobtz.github.io/zutoml/reference/zutoml_info.md)
+  reports the versions zutoml was built against and the `toml-test`
+  suite it passes.
 - Every case of the `toml-test` suite passes, for TOML 1.0.0 and 1.1.0,
   in both directions. TOML 1.1.0 is read by default; `version = "1.0.0"`
   reads strictly; the emitter always writes TOML 1.0.0.

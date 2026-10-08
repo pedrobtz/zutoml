@@ -35,8 +35,10 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.0.0.9000" id="zutoml-0009000">zutoml 0.0.0.9000<a class="anchor" aria-label="anchor" href="#zutoml-0009000"></a></h2>
 <ul><li>
-<code><a href="../reference/toml_validate.html">toml_validate()</a></code> checks that a document is valid TOML, within size, depth, item and string limits, and with <code>error = TRUE</code> says why and where (<code>line</code>, <code>column</code>, <code>offset</code> and <code>kind</code> on a classed condition). It passes every case of the <code>toml-test</code> suite for TOML 1.0.0 and 1.1.0.</li>
-<li>TOML 1.1.0 is read by default; <code>version = "1.0.0"</code> reads strictly (design D17).</li>
+<code><a href="../reference/toml_parse.html">toml_parse()</a></code> reads a TOML document into ordinary R values: tables as named lists in document order, arrays as vectors where their elements share a type, date-times as <code>POSIXct</code> and <code>Date</code>, and integers beyond 2^53 as <code><a href="../reference/toml_bigint.html">toml_bigint()</a></code>. <code>data_frame = TRUE</code> turns arrays of tables into data frames.</li>
+<li>
+<code><a href="../reference/toml_validate.html">toml_validate()</a></code> checks that a document is valid TOML, within size, depth, item and string limits, and with <code>error = TRUE</code> says why and where (<code>line</code>, <code>column</code>, <code>offset</code> and <code>kind</code> on a classed condition).</li>
+<li>Both pass every case of the <code>toml-test</code> suite for TOML 1.0.0 and 1.1.0. TOML 1.1.0 is read by default; <code>version = "1.0.0"</code> reads strictly.</li>
 </ul></div>
   </main></div>
 

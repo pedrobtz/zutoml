@@ -1,8 +1,11 @@
 # Check that a document is valid TOML
 
-Runs the whole check phase of `toml_parse()` (the lexer, the grammar,
-the rules for defining tables and keys, every value, and the limits)
-without building any R value. It is exactly the check `toml_parse()`
+Runs the whole check phase of
+[`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
+(the lexer, the grammar, the rules for defining tables and keys, every
+value, and the limits) without building any R value. It is exactly the
+check
+[`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
 makes, with the same limits: the two disagree only where a document is
 valid TOML that R cannot hold, such as a string containing U+0000.
 
@@ -38,7 +41,7 @@ toml_validate(
 
 - max_depth:
 
-  The deepest nesting of tables and arrays, counting both.
+  The deepest nesting of tables and arrays, counting both; at most 1023.
 
 - max_items:
 

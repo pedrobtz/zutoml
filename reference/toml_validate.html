@@ -42,9 +42,9 @@ that R cannot hold, such as a string containing U+0000."></head><body>
     </div>
 
     <div class="ref-description section level2">
-    <p>Runs the whole check phase of <code>toml_parse()</code> (the lexer, the grammar, the
+    <p>Runs the whole check phase of <code><a href="toml_parse.html">toml_parse()</a></code> (the lexer, the grammar, the
 rules for defining tables and keys, every value, and the limits) without
-building any R value. It is exactly the check <code>toml_parse()</code> makes, with
+building any R value. It is exactly the check <code><a href="toml_parse.html">toml_parse()</a></code> makes, with
 the same limits: the two disagree only where a document is valid TOML
 that R cannot hold, such as a string containing U+0000.</p>
     </div>
@@ -82,7 +82,8 @@ times without seconds, newlines and a trailing comma in inline tables).</p></dd>
 
 
 <dt id="arg-max-depth">max_depth<a class="anchor" aria-label="anchor" href="#arg-max-depth"></a></dt>
-<dd><p>The deepest nesting of tables and arrays, counting both.</p></dd>
+<dd><p>The deepest nesting of tables and arrays, counting both;
+at most 1023.</p></dd>
 
 
 <dt id="arg-max-items">max_items<a class="anchor" aria-label="anchor" href="#arg-max-items"></a></dt>

@@ -1,6 +1,8 @@
-# toml-test (design section 15, roadmap Stage 1): the committed suite equals
-# a fresh fetch at the pinned tag, and every case runs through the current
-# check phase for TOML 1.0.0 and 1.1.0. Every valid case must be accepted.
+# toml-test (design section 15): the committed suite equals a fresh fetch at
+# the pinned tag; every case, for TOML 1.0.0 and 1.1.0, gives the answer it
+# should through toml_validate(); and toml_emit()'s text for every valid
+# case is accepted by toml-test's reference decoder (BurntSushi/toml, pinned)
+# and by Python's tomllib (acceptance criterion 3).
 on:
   push:
     branches: [main, master]
@@ -26,4 +28,12 @@ jobs:
         with:
           dependencies: '"hard"'
           extra-packages: any::pkgload
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+      - name: Install the reference decoder
+        run: |
+          go install github.com/BurntSushi/toml/cmd/toml-test-decoder@v1.6.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - run: tools/run-conformance

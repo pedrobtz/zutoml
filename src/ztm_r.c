@@ -10,6 +10,7 @@
 #include <zufast/number.h>
 
 #include "ztm_build.h"
+#include "ztm_emit.h"
 #include "ztm_check.h"
 #include "ztm_r.h"
 
@@ -247,5 +248,33 @@ SEXP zutoml_parse(SEXP x, SEXP version, SEXP max_size, SEXP max_depth, SEXP max_
         SET_VECTOR_ELT(out, 1, ztm_fault_to_r(&b.fault));
     SET_VECTOR_ELT(out, 2, Rf_ScalarLogical(b.has_local));
     UNPROTECT(1);
+    return out;
+}
+
+/* zutoml_emit(x, indent, inline, width, na_omit, literal, max_depth):
+ * toml_emit(). A list of `text` (NULL on failure), `status`, `detail`,
+ * `path` and `dropped`. */
+SEXP zutoml_emit(SEXP x, SEXP indent, SEXP inline_max, SEXP width, SEXP na_omit,
+                 SEXP literal, SEXP max_depth)
+{
+    static const char *names[] = {"text", "status", "detail", "path", "dropped"};
+    static const char *statuses[] = {"ok", "unsupported_type", "na", "invalid", "depth_limit"};
+    ztm_emit_opts opt;
+    ztm_emit_result res;
+    opt.indent = Rf_asInteger(indent);
+    opt.inline_max = Rf_asInteger(inline_max);
+    opt.width = Rf_asInteger(width);
+    opt.na_omit = Rf_asLogical(na_omit) == TRUE;
+    opt.literal = Rf_asLogical(literal) == TRUE;
+    opt.max_depth = Rf_asInteger(max_depth);
+    SEXP out = PROTECT(mk_named_list(5, names));
+    SEXP text = PROTECT(ztm_emit(x, &opt, &res));
+    if (res.status == ZTM_EMIT_OK)
+        SET_VECTOR_ELT(out, 0, Rf_ScalarString(text));
+    SET_VECTOR_ELT(out, 1, Rf_mkString(statuses[res.status]));
+    SET_VECTOR_ELT(out, 2, res.detail ? Rf_mkString(res.detail) : Rf_ScalarString(NA_STRING));
+    SET_VECTOR_ELT(out, 3, res.path ? Rf_mkString(res.path) : Rf_ScalarString(NA_STRING));
+    SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(res.dropped));
+    UNPROTECT(2);
     return out;
 }

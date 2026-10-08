@@ -12,6 +12,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"zutoml_tokens",       (DL_FUNC) &zutoml_tokens,       4},
     {"zutoml_check",        (DL_FUNC) &zutoml_check,        6},
     {"zutoml_parse",        (DL_FUNC) &zutoml_parse,        10},
+    {"zutoml_emit",         (DL_FUNC) &zutoml_emit,         7},
     {NULL, NULL, 0}
 };
 

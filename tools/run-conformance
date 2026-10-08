@@ -7,8 +7,12 @@
 #       fetch at the pinned tag (tools/update-fixtures).
 #
 #   tools/run-conformance
-#       Also runs every case, for TOML 1.0.0 and 1.1.0, through the current
-#       check phase (tools/conformance.R): every valid case must be accepted.
+#       Also runs every case, for TOML 1.0.0 and 1.1.0, through
+#       toml_validate() (tools/conformance.R), and then writes toml_emit()'s
+#       text for every valid case (tools/emit-corpus.R) and requires other
+#       readers to accept it: toml-test's reference decoder ($TOML_DECODER,
+#       or toml-test-decoder on the PATH; BurntSushi/toml's) and Python's
+#       tomllib, each when present. CI installs both.
 set -eu
 
 WORK=$(mktemp -d)
@@ -30,4 +34,32 @@ for v in 1.0.0 1.1.0; do
   echo
   Rscript tools/conformance.R "$v" || fail=1
 done
+
+echo
+Rscript tools/emit-corpus.R "$WORK/emitted"
+DECODER=${TOML_DECODER:-$(command -v toml-test-decoder || true)}
+if [ -n "$DECODER" ]; then
+  bad=0
+  for f in "$WORK/emitted"/*.toml; do
+    "$DECODER" < "$f" > /dev/null 2> "$WORK/err" || { echo "FAIL: the reference decoder refused $(basename "$f"): $(cat "$WORK/err")" >&2; bad=1; }
+  done
+  [ $bad = 0 ] && echo "==> the reference decoder ($DECODER) accepts every emitted document" || fail=1
+else
+  echo "(no reference decoder: set TOML_DECODER or put toml-test-decoder on the PATH)"
+fi
+if python3 -c 'import tomllib' 2> /dev/null; then
+  python3 - "$WORK/emitted" <<'PY' || fail=1
+import pathlib, sys, tomllib
+bad = 0
+for f in sorted(pathlib.Path(sys.argv[1]).glob("*.toml")):
+    try:
+        tomllib.loads(f.read_bytes().decode("utf-8"))
+    except Exception as e:
+        print(f"FAIL: tomllib refused {f.name}: {e}", file=sys.stderr)
+        bad = 1
+if bad:
+    sys.exit(1)
+print("==> Python's tomllib accepts every emitted document")
+PY
+fi
 exit $fail

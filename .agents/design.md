@@ -177,7 +177,8 @@ toml_emit(
                                 # inline tables; 0 means never (§18 Q1)
   width   = 80L,                # arrays wrap past this column; 0 never
   na      = c("error", "omit"),
-  strings = c("basic", "literal")
+  strings = c("basic", "literal"),
+  max_depth = 128L              # charged as the parser charges it (§8)
 )
 ```
 
@@ -300,7 +301,7 @@ The emitter writes, in order: every scalar and array value of the top table; the
 
 ### 7.3 What cannot be emitted
 
-`zutoml_unsupported_type`: complex numbers, raw vectors (TOML has no bytes; encode them as a string first), functions, environments, external pointers, S4 objects, `POSIXlt`, and matrices and arrays with `dim` (TOML arrays are nested, and a `dim` is a policy the caller should make explicit by converting to a list).
+`zutoml_unsupported_type`: complex numbers, raw vectors (TOML has no bytes; encode them as a string first), functions, environments, external pointers, S4 objects, `POSIXlt`, and matrices and arrays with `dim` (TOML arrays are nested, and a `dim` is a policy the caller should make explicit by converting to a list). As built at Stage 5, the rule is an allow-list: an atomic vector may carry only the classes of §7.1 (`AsIs`, `factor`, `Date`, `POSIXct`, `difftime`, `toml_bigint`), and a list only `AsIs` or `data.frame`; anything else (`integer64`, which is a double with a class; `POSIXlt`, which is a named list) is refused rather than written by its storage.
 
 ### 7.4 Known lossy conversions
 
@@ -313,7 +314,10 @@ This table is part of the contract and goes into the user documentation as well.
 | local time | text, or seconds since midnight |
 | fractional seconds past microseconds | truncated in a `POSIXct`; kept in `"keep"` |
 | comments and whitespace | dropped |
-| key order on parse | kept; on emit, the list's |
+| key order on parse | kept |
+| key order on emit | the list's, except that a table's own values come before its sub-tables, which TOML requires: `list(t = list(x = 1), a = 2)` reads back as `list(a = 2, t = ...)` |
+| an empty unnamed `list()` | `[]`, which reads back as `logical(0)` |
+| `NA` cells of a data frame | left out of their row's table, which is what `data_frame = TRUE` reads back as `NA` |
 | `1.0` and `1` | both emit as `1` |
 | `factor` | its labels |
 | `I(x)` of length one | an array of one |
@@ -454,7 +458,7 @@ Every row of the §6 and §7 tables has a test. The tables in the roxygen docs, 
 - `tools/update-fixtures` fetches the suite at a pinned tag into `tests/testthat/toml-test/` with a manifest (path, the TOML versions whose case lists name it, SHA-256) and a `VERSION` file (tag and commit); not under `fixtures/`, since the suite's longest path would then pass the 100 bytes R CMD check accepts as portable in the tarball, as `zucbor` does with `cbor/test-vectors`; the files are regenerated only by that tool, and `tools/run-conformance` fails if a committed fixture differs from a fresh fetch.
 - Every `valid/*.toml` must parse to the value in its `.json` twin. The twin is the suite's tagged JSON (`{"type": "integer", "value": "42"}`, with types `string`, `integer`, `float`, `bool`, `datetime`, `datetime-local`, `date-local`, `time-local`), read with `jsonlite` and compared type by type against `toml_parse(d, datetimes = "keep", simplify = "none")`, since the tagged form has no lattice and keeps date-times as text, and again under `datetimes = "convert", local_time = "difftime"`, since in `"keep"` mode a date-time and a string are both `character` and only the converted pass tells them apart. Doubles are compared to within two ulps, because the expectation is built with `as.numeric()`, which is not correctly rounded on every platform.
 - Every `invalid/*.toml` must raise `zutoml_parse_error`, with `kind` checked where the suite's directory names a rule (`invalid/table/` is `table_redefined` and so on).
-- The emitter against the suite: every `valid` value emitted and parsed back equals the suite's expectation; in the `conformance` CI job the emitted text is also fed to the suite's reference decoder (`toml-test`'s own Go binary) and must be accepted.
+- The emitter against the suite: every `valid` value emitted and parsed back equals itself modulo §7.4 (`test-emit-conformance.R`), and its text is TOML 1.0.0 whatever version was read; in the `conformance` CI job the emitted text of every valid case is also fed to the reference decoder (`toml-test-decoder` from BurntSushi/toml, pinned) and to Python's `tomllib`, and must be accepted. toml-test's own encoder mode is not used as a gate: by D4 a whole double is written as an integer, so the mode would report every whole-float case as a type mismatch; the round trip compares numbers by value instead.
 - The suite's pinned version is in `zutoml_info()`.
 
 ### Properties
@@ -503,6 +507,7 @@ Measured by `tools/run-benchmarks` and recorded here when Stage 7 runs them: par
 | D14 | Info function | `zutoml_info()`, the package name (R1) |
 | D15 | Base prefixes and underscores | stripped by zutoml's lexer before zufast sees the digits (*verified 2026-10-08*) |
 | D16 | Where C raises | never; statuses by enumerator name, R raises (`zucbor`'s convention) |
+| D18 | Emitter choices (§18 Q1–Q3) | `inline = 0` by default; a `difftime` other than seconds within a day is refused, naming `as.numeric()`; a `POSIXct` in any zone but none is written in UTC with `Z` (decided at Stage 5, as recommended) |
 | D17 | TOML 1.1.0 | read by default; `version = c("1.1.0", "1.0.0")` on every reading function, `"1.0.0"` strict; the emitter writes 1.0-compatible text whatever the version (decided at Stage 1, 2026-10-08) |
 
 Reasons where they are not in the section cited:
@@ -520,9 +525,9 @@ Reasons where they are not in the section cited:
 
 Each stays the maintainer's until recorded above; the recommendation is the RFC's unless marked otherwise.
 
-1. **Inline-table threshold.** `inline = 0` (never) is the safest default for readability of generated files; `inline = 3` makes small points and ranges one-liners. Recommended: 0, since a caller who wants inline tables knows it.
-2. **`difftime` on emit.** Only `secs` within a day maps to a local time; other units and values are ambiguous. Refuse them, or emit as a float of seconds? Recommended: refuse, with the message naming `as.numeric()`.
-3. **Non-UTC `POSIXct` on emit.** Convert to UTC (as §7.1 says), or write the zone's offset at that instant (`+02:00`)? The offset form is what a person wrote; the UTC form is deterministic across sessions. Recommended: UTC, with an `offset = TRUE` argument deferred.
+1. *Decided at Stage 5 (D18): 0.* **Inline-table threshold.** `inline = 0` (never) is the safest default for readability of generated files; `inline = 3` makes small points and ranges one-liners. Recommended: 0, since a caller who wants inline tables knows it.
+2. *Decided at Stage 5 (D18): refuse.* **`difftime` on emit.** Only `secs` within a day maps to a local time; other units and values are ambiguous. Refuse them, or emit as a float of seconds? Recommended: refuse, with the message naming `as.numeric()`.
+3. *Decided at Stage 5 (D18): UTC.* **Non-UTC `POSIXct` on emit.** Convert to UTC (as §7.1 says), or write the zone's offset at that instant (`+02:00`)? The offset form is what a person wrote; the UTC form is deterministic across sessions. Recommended: UTC, with an `offset = TRUE` argument deferred.
 4. **`toml_bigint` versus `bit64::integer64`.** `zubin` returns `integer64` by class without a dependency. TOML integers are at most 64-bit, so `integer64` would hold every one exactly. Recommended: keep the family's bigint class for consistency with `zuyaml` and `zucbor`, and record `integer64` as an `int64 =` option for later.
 5. *Decided at Stage 1: D17.* **TOML 1.1.0 as the default** (*new, verified 2026-10-08*). toml.io now lists v1.1.0 as the current specification, `toml-test` v2.2.0 carries its cases behind `-toml 1.1`, and `tomlc17` passes both. 1.1.0 is a superset of 1.0.0 for a reader. The RFC's D3 (1.0.0 first) was made when 1.1.0 was unfinished. Recommended (this document's, not the RFC's): decide at Stage 1, when the runner exists, by running both suites; if the 1.1 forms cost little, parse `version = c("1.1.0", "1.0.0")` with 1.1.0 the default and `"1.0.0"` strict, and keep the emitter writing 1.0-compatible text always, since §1 promises output every reader accepts.
 6. *Moot after Stage 3: the project parser passed every case.* **The D1 fallback trigger.** Stage 3's exit criterion is every `toml-test` case through `toml_validate()`. If that slips, is the answer more time or `tomlc17`? Recommended: `tomlc17` (or `teptris`, if it has matured; see D1), pinned and vendored under the family's rules, with the emitter and the build phase unchanged; the check-then-build shape survives because `tomlc17` returns a whole tree before any R object is made.

@@ -33,3 +33,67 @@ neg_zero <- function() {
   z <- 0
   -z
 }
+
+# Where toml_parse(toml_emit(v)) differs from v beyond design section 7.4's
+# losses, or NULL. Allowed: tables compare by key in any order (the emitter
+# writes a table's values before its sub-tables), and a whole double reads
+# back as an integer (design D4), so numbers compare by value.
+roundtrip_diff <- function(actual, expected, path = "") {
+  at <- if (nzchar(path)) path else "<document>"
+  num <- function(v) is.numeric(v) && !is.object(v)
+  if (num(actual) && num(expected)) {
+    same <- length(actual) == length(expected) &&
+      identical(inherits(actual, "AsIs"), inherits(expected, "AsIs")) &&
+      all(
+        (is.nan(actual) & is.nan(expected)) |
+          (!is.nan(actual) &
+            !is.nan(expected) &
+            actual == expected &
+            (actual != 0 | (1 / actual == 1 / expected)))
+      )
+    return(
+      if (same) {
+        NULL
+      } else {
+        sprintf("%s: %s, expected %s", at, deparse1(actual), deparse1(expected))
+      }
+    )
+  }
+  if (is.list(actual) && is.list(expected) && !is.null(names(expected))) {
+    if (!setequal(names(actual), names(expected))) {
+      return(sprintf("%s: names differ", at))
+    }
+    for (nm in names(expected)) {
+      d <- roundtrip_diff(
+        actual[[nm]],
+        expected[[nm]],
+        if (nzchar(path)) paste0(path, ".", nm) else nm
+      )
+      if (!is.null(d)) return(d)
+    }
+    return(NULL)
+  }
+  if (is.list(actual) && is.list(expected)) {
+    if (length(actual) != length(expected)) {
+      return(sprintf("%s: length differs", at))
+    }
+    for (i in seq_along(expected)) {
+      d <- roundtrip_diff(
+        actual[[i]],
+        expected[[i]],
+        sprintf("%s[%d]", path, i)
+      )
+      if (!is.null(d)) return(d)
+    }
+    return(NULL)
+  }
+  if (!identical(actual, expected)) {
+    return(sprintf(
+      "%s: %s, expected %s",
+      at,
+      deparse1(actual),
+      deparse1(expected)
+    ))
+  }
+  NULL
+}

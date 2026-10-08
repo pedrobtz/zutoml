@@ -1,0 +1,12 @@
+# Portable make only: every object is listed by hand, since R compiles only
+# src/*.c on its own and $(wildcard) would cost SystemRequirements: GNU make.
+# No -W overrides either; CRAN rejects them. There is no Makevars.win: R on
+# Windows uses this file when that one is absent, which keeps the two from
+# drifting. See .agents/design.md section 14.
+#
+# $(C_VISIBILITY) hides every symbol but R_init_zutoml, which init.c marks
+# attribute_visible (tools/check-symbols, roadmap Stage 1).
+PKG_CFLAGS = $(C_VISIBILITY)
+
+OBJECTS = \
+	init.o

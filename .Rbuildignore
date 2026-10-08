@@ -3,3 +3,12 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^\.agents$
+^\.claude$
+^tools$
+^fuzz$
+^src/.*\.o$
+^src/.*\.(so|dll|dylib|a)$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
+^vignettes/articles$

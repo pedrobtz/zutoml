@@ -1,0 +1,3 @@
+# toml-test stores some cases with CRLF or invalid bytes on purpose; keep
+# every byte as fetched (tools/update-fixtures).
+tests/testthat/toml-test/** -text

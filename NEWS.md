@@ -1,3 +1,4 @@
-# zutoml (development version)
+# zutoml 0.0.0.9000
 
-* Initial CRAN submission.
+* Package skeleton: registration, condition classes and the `toml-test`
+  fixtures. Nothing is exported yet.

@@ -13,6 +13,9 @@ concurrency:
 
 jobs:
   coverage:
-    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@v1
+    # Pinned by commit, not by tag: this job holds a write token and a tag is
+    # mutable. Dependabot (.github/dependabot.yml) moves the pin by the tag in
+    # the trailing comment (alignment R5).
+    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@bdfde5edd37f25b33af142a4a881585e77bda3c2 # v1.22.0
     permissions:
       contents: write

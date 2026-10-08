@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stage 0 in progress on `stage-0-baseline`; no parser code yet.** The package checks 0/0/0 with real metadata, `src/init.c` (registration only, `R_init_zutoml` the one visible symbol), `R/conditions.R` and the test suite: `toml-test` v2.2.0 committed under `tests/testthat/toml-test/`, the helpers, and `test-conformance.R`, which skips until the parser exports. Left for Stage 0: the `coverage.yaml` pin, Dependabot, the tracking issues and CI. Next: Stage 1, the lexer.
+**2026-10-08: Stage 0 in progress on `stage-0-baseline`; no parser code yet.** The package checks 0/0/0 with real metadata, `src/init.c` (registration only, `R_init_zutoml` the one visible symbol), `R/conditions.R` and the test suite: `toml-test` v2.2.0 committed under `tests/testthat/toml-test/`, the helpers, and `test-conformance.R`, which skips until the parser exports. Left for Stage 0: CI green on the pull request. Next: Stage 1, the lexer.
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 
@@ -21,7 +21,7 @@ Update this paragraph at the end of every stage: what exists, what is next, and 
 
 Progress toward the next version is tracked as GitHub sub-issues, so the parent issue shows a progress bar such as "6 of 7".
 
-- **One parent issue per target version**, titled with the bare version, `v0.1.0`. Not yet opened (2026-10-08); Stage 0 opens it and `.github/scripts/stage-cards.sh` in `pedrobtz/packages` puts it on the board.
+- **One parent issue per target version**, titled with the bare version, `v0.1.0`: #1, opened 2026-10-08 with sub-issues #2 (Stage 0) to #10 (Stage 8). It is not yet on the board: that needs zutoml added to `.github/scripts/stage-cards.sh` in `pedrobtz/packages`.
 - **One sub-issue per roadmap stage**, titled as the roadmap titles it, for example `Stage 3 — The table model and the grammar`, and linking to that section's anchor. The roadmap has nine stages, 0 to 8.
 - **Every tracking issue carries the `stage` label**, so it can be told apart from bug and feature issues and left out of open-issue counts.
 - **Close a stage by merging its pull request.** Put `Closes #<n>` in the body. Never close a stage whose exit criteria are not met; record a deviation in the stage's **Status:** line first.

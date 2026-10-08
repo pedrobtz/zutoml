@@ -18,7 +18,7 @@ Sizes are relative: **S** ≈ a sitting, **M** ≈ a few, **L** ≈ the stage is
 
 **Status never goes in a heading.** A heading is `## Stage N — Title · Size` and nothing else; the state is the **Status:** line under it. Status words in a heading change its GitHub anchor and break every issue that links to it.
 
-**Tracking.** A `v0.1.0` parent issue and one `stage`-labelled sub-issue per stage, each linking to its heading here, as `templates/package-CLAUDE.md` describes. None exists on 2026-10-08; Stage 0 opens them and `.github/scripts/stage-cards.sh` in `pedrobtz/packages` puts the parent on the board. Close a stage's issue when its exit criteria pass and update its **Status:** line in the same pull request. Each stage gains a **What actually happened** block when it closes: what the plan got wrong is the most useful thing this file records.
+**Tracking.** A `v0.1.0` parent issue and one `stage`-labelled sub-issue per stage, each linking to its heading here, as `templates/package-CLAUDE.md` describes. Opened 2026-10-08: parent #1, stages #2 (Stage 0) to #10 (Stage 8); `.github/scripts/stage-cards.sh` in `pedrobtz/packages` puts the parent on the board once zutoml is added to its list. Close a stage's issue when its exit criteria pass and update its **Status:** line in the same pull request. Each stage gains a **What actually happened** block when it closes: what the plan got wrong is the most useful thing this file records.
 
 ## The release order, and what it costs
 
@@ -78,7 +78,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 0 — Package identity and a clean baseline · S
 
-**Status:** in progress (branch `stage-0-baseline`). Done locally: metadata, registration, conditions, the test suite (fixtures, helpers, `test-conformance.R` skipping until the parser exports), `tools/update-fixtures`, `tools/run-conformance --fixtures-only`; `devtools::check(cran = TRUE)` 0/0/0. Left: the `coverage.yaml` pin, Dependabot, the tracking issues and labels, CI green.
+**Status:** in progress (branch `stage-0-baseline`). Done locally: metadata, registration, conditions, the test suite (fixtures, helpers, `test-conformance.R` skipping until the parser exports), `tools/update-fixtures`, `tools/run-conformance --fixtures-only`; `devtools::check(cran = TRUE)` 0/0/0. `coverage.yaml` pinned by commit (v1.22.0) with Dependabot; labels and tracking issues #1–#10 open. Left: CI green.
 
 **Goal:** the `usethis` skeleton becomes a package with the right metadata, registration and build hygiene, so every later stage is measured against a clean 0/0/0.
 

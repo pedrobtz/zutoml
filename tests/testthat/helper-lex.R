@@ -25,3 +25,12 @@ bytes <- function(...) {
     if (is.character(p)) as.integer(charToRaw(p)) else p
   })))
 }
+
+# The parsed value and class of `a = <v>`, from the token table.
+value_of <- function(v, ...) {
+  t <- ztm_tokens(paste("a =", v), ...)
+  t[3L, c("type", "value", "class")]
+}
+
+# The kind of the fault `a = <v>` raises.
+value_error <- function(v, ...) lex_error(paste("a =", v), ...)$kind

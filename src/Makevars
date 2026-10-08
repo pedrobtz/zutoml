@@ -12,4 +12,5 @@ OBJECTS = \
 	init.o \
 	ztm_lex.o \
 	ztm_r.o \
-	ztm_status.o
+	ztm_status.o \
+	ztm_value.o

@@ -1,0 +1,65 @@
+# The C boundary is where this package has to be strict: its own parser
+# meets untrusted input. These jobs make the robustness claims testable
+# rather than asserted (design sections 12, 13 and 15; roadmap Stage 2).
+#
+# paths-ignore skips the workflow for prose-only changes. man/ is left out of
+# it on purpose: R CMD check runs the examples, and valgrind runs them
+# instrumented.
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  schedule:
+    # Weekly, so a latent problem surfaces without waiting for a push.
+    - cron: "0 4 * * 3"
+  workflow_dispatch:
+
+name: native-checks
+
+permissions: read-all
+
+jobs:
+  # UBSan over the whole suite on a runner (clang and gcc), plus R CMD check
+  # in the R-hub ASan containers. -UNDEBUG rides in extra-ubsan-checks, which
+  # is appended to CFLAGS after R's -DNDEBUG, so any assert() is live.
+  sanitizers:
+    uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@v1
+    with:
+      asan: true
+      extra-ubsan-checks: -UNDEBUG
+
+  valgrind:
+    uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@v1
+
+  lto:
+    uses: pedrobtz/r-actions/.github/workflows/lto.yml@v1
+
+  # The wide quick step on each pull-request push, step 100 after merge.
+  # ZUTOML_SKIP_HEAVY skips the tests that allocate millions of objects:
+  # they check limits, not PROTECT discipline, and under gctorture they
+  # would take hours.
+  gctorture:
+    uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@v1
+    with:
+      step: 100
+      profile: ${{ github.event_name == 'pull_request' && 'quick' || 'full' }}
+      env: |
+        ZUTOML_SKIP_HEAVY=true
+
+  # Blocking from the first run: the C code is new, so any finding is ours.
+  rchk:
+    uses: pedrobtz/r-actions/.github/workflows/rchk.yml@v1
+    with:
+      fail-on-findings: true

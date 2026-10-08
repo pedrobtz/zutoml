@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stage 0 merged (#11); Stage 1 (the lexer) in review on `stage-1-lexer`.** `src/ztm_lex.c` tokenises every valid toml-test document for TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default) with positioned faults; `ztm_tokens()` is the internal entry the tests use. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml` and `hardening.yaml`. Next: Stage 2, values through zufast.
+**2026-10-08: Stages 0 and 1 merged (#11, #14); Stage 2 (values) in review on `stage-2-values`.** The lexer (`src/ztm_lex.c`) and the value parser (`src/ztm_value.c`) accept every valid toml-test document for TOML 1.0.0 and 1.1.0 (D17: 1.1.0 is the default) and refuse every invalid scalar; `ztm_tokens()` is the internal entry the tests use, with a `value` and `class` column per token. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: Stage 3, the grammar and the table model, which exports `toml_validate()`.
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 
@@ -74,6 +74,8 @@ R/            parse.R, read.R, validate.R, emit.R, write.R, classes.R (toml_bigi
               conditions.R, args.R, info.R, zu_source.R (copied verbatim from zuxml;
               edit there), zutoml-package.R
 src/          init.c                      registration only
+              ztm_value.c                 scalars: TOML shape checks, then zufast; string decoding
+              ztm_r.c, ztm_r.h            .Call entry points and SEXP glue
               ztm_check.h                 the check phase's R-free interface
               ztm_lex.c, ztm_parse.c      check phase: lexer, grammar, table model, limits
               ztm_status.c                enumerator names (R-free)

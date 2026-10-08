@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <zufast/datetime.h>
+
 /* Scratch memory, released as a whole: R_alloc() in the package, which R
  * frees when the .Call returns or unwinds (design section 13); an arena the
  * harness resets after each input in the standalone build. Never NULL: R
@@ -47,6 +49,12 @@ typedef enum {
     /* lexical */
     ZTM_ERR_UNEXPECTED_CHARACTER,  /* a byte that cannot start a token here */
     ZTM_ERR_INVALID_VALUE,         /* a span that is no TOML value */
+    /* scalars (Stage 2) */
+    ZTM_ERR_INVALID_INTEGER,       /* not TOML's integer shape */
+    ZTM_ERR_INTEGER_RANGE,         /* outside 64-bit signed */
+    ZTM_ERR_INVALID_FLOAT,         /* not TOML's float shape */
+    ZTM_ERR_INVALID_DATETIME,      /* not TOML's date-time shape, or no such
+                                      date or time */
     /* limits (design section 12) */
     ZTM_ERR_SIZE_LIMIT,
     ZTM_ERR_STRING_LIMIT,
@@ -139,11 +147,47 @@ ztm_status ztm_lex_init(ztm_lexer *lx, const unsigned char *buf, size_t len,
  * are tokens. Returns ZTM_OK or fills fault. */
 ztm_status ztm_lex_next(ztm_lexer *lx, ztm_mode mode, ztm_token *tok, ztm_fault *fault);
 
+/* ---- values (Stage 2) ----------------------------------------------------
+ *
+ * The value of a scalar token, parsed once by the check phase so the build
+ * phase never re-reads text (design section 13). Strings are decoded into
+ * scratch. */
+
+typedef enum {
+    ZTM_INT_FITS_INTEGER,  /* an R integer: within int32, not INT32_MIN */
+    ZTM_INT_FITS_DOUBLE,   /* exactly a double: |v| <= 2^53 */
+    ZTM_INT_BIG            /* beyond: a toml_bigint, or big_integers decides */
+} ztm_int_class;
+
+typedef struct {
+    ztm_tok_type type;
+    int64_t i;             /* ZTM_TOK_INTEGER */
+    ztm_int_class int_class;
+    double d;              /* ZTM_TOK_FLOAT */
+    int overflow;          /* a float beyond double's range (d is +-Inf):
+                              valid TOML R cannot hold (design section 6.4) */
+    int b;                 /* ZTM_TOK_BOOL */
+    zuf_datetime dt;       /* the four date-time types; local time uses the
+                              time fields only */
+    const char *s;         /* strings: decoded UTF-8, not NUL-terminated */
+    size_t n;
+    int has_nul;           /* the string holds U+0000 (design section 6.4) */
+} ztm_value;
+
+/* The value of a scalar or string token. Faults are positioned at the
+ * token's first byte. */
+ztm_status ztm_value_of(ztm_lexer *lx, const ztm_token *tok, ztm_value *v, ztm_fault *fault);
+
+/* A key token's text: a bare key as written, a quoted key decoded. */
+void ztm_key_of(ztm_lexer *lx, const ztm_token *tok, const char **s, size_t *n, int *has_nul);
+
 /* Tokenises the whole document, tracking key and value mode by the bracket
- * structure alone (no grammar checks): the Stage 1 driver behind
- * zutoml_tokens() and the fuzz target. *out receives a scratch array of
- * *n tokens, the last of type ZTM_TOK_EOF. */
+ * structure alone (no grammar checks), and parses every value token (Stage
+ * 2): the driver behind zutoml_tokens() and the fuzz target until the
+ * grammar lands. *out receives a scratch array of *n tokens, the last of
+ * type ZTM_TOK_EOF; *vals, when not NULL, the parallel array of values
+ * (zeroed for punctuation and keys). */
 ztm_status ztm_tokenize(const unsigned char *buf, size_t len, const ztm_opts *opt,
-                        ztm_token **out, size_t *n, ztm_fault *fault);
+                        ztm_token **out, ztm_value **vals, size_t *n, ztm_fault *fault);
 
 #endif

@@ -208,7 +208,7 @@ Notes, by row:
 - **Offset date-time.** The offset is applied and the instant returned in UTC; the written offset is not kept (a documented loss, §7.4). `datetimes = "keep"` returns the text instead, normalised to RFC 3339 with `T`.
 - **Local date-time.** A wall-clock time with no zone. R's convention for that is a `POSIXct` with an empty `tzone`, which prints and computes in the session's zone; it is the same instant only within one session's zone, and §7.4 says so. `"keep"` returns the text.
 - **Local time.** R has no time-of-day class. The default is the text as written, normalised to `HH:MM:SS[.fraction]`; `"difftime"` gives seconds since midnight in `units = "secs"`.
-- **Fractional seconds.** TOML allows any precision and lets an implementation truncate. zutoml keeps microseconds in a `POSIXct` and the full text in `"keep"` mode; a fraction beyond nine digits is a parse error, as `toml-test` expects.
+- **Fractional seconds.** TOML allows any precision and says extra precision "must be truncated, not rounded". zutoml reads nine digits (nanoseconds), truncating the rest, keeps microseconds in a `POSIXct`, and nanoseconds in `"keep"` mode. (The RFC said more than nine digits was a parse error "as `toml-test` expects"; toml-test v2.2.0 has no such case and the spec says otherwise. Corrected at Stage 2.)
 
 ### 6.2 Keys and tables
 
@@ -247,7 +247,7 @@ one element that simplifies                   -> marked I()
 
 ### 6.4 Valid TOML that R cannot hold
 
-A string containing U+0000; a key longer than an R string; an array of more than `2^31 - 1` elements. Each is `zutoml_unrepresentable`, raised in the build phase with its position. These are the only cases where `toml_validate()` says `TRUE` and `toml_parse()` fails (§4, rule 2). The NUL and length guards live in one function, `ztm_mkchar()`, the only place a CHARSXP is made, so string values, names and keys cannot drift apart.
+A string containing U+0000; a key longer than an R string; an array of more than `2^31 - 1` elements; a float beyond the range of a double (`1e400`), which zufast rounds to infinity and the check phase flags (Stage 2). Each is `zutoml_unrepresentable`, raised in the build phase with its position. These are the only cases where `toml_validate()` says `TRUE` and `toml_parse()` fails (§4, rule 2). The NUL and length guards live in one function, `ztm_mkchar()`, the only place a CHARSXP is made, so string values, names and keys cannot drift apart.
 
 ---
 

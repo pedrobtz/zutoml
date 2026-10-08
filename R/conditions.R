@@ -93,7 +93,11 @@ ztm_parse_statuses <- c(
   "unterminated_string",
   "multiline_key",
   "unexpected_character",
-  "invalid_value"
+  "invalid_value",
+  "invalid_integer",
+  "integer_range",
+  "invalid_float",
+  "invalid_datetime"
 )
 
 # English for each status, for the message only. Tests never match it.
@@ -105,7 +109,11 @@ ztm_status_text <- c(
   unterminated_string = "string is not terminated",
   multiline_key = "a multi-line string cannot be a key",
   unexpected_character = "unexpected character",
-  invalid_value = "not a TOML value"
+  invalid_value = "not a TOML value",
+  invalid_integer = "not a TOML integer",
+  integer_range = "integer outside the 64-bit signed range",
+  invalid_float = "not a TOML float",
+  invalid_datetime = "not a valid TOML date or time"
 )
 
 ztm_fault_message <- function(fault, class) {

@@ -34,26 +34,46 @@ pak::pak("pedrobtz/zutoml")
 
 ## Example
 
+Read a TOML file straight from a URL, here the `pyproject.toml` of
+pandas:
+
 ``` r
 
 library(zutoml)
 
-x <- toml_parse('
-title = "TOML Example"
+pyproject <- "https://raw.githubusercontent.com/pandas-dev/pandas/v3.0.6/pyproject.toml"
 
-[owner]
-name = "Tom Preston-Werner"
-dob = 1979-05-27T07:32:00-08:00
+x <- toml_read(pyproject)
+names(x)
+#> [1] "build-system" "project"      "tool"
+x$project$name
+#> [1] "pandas"
+x$project$`requires-python`
+#> [1] ">=3.11"
+x$project$dependencies
+#> [1] "numpy>=1.26.0; python_version < '3.14'"
+#> [2] "numpy>=2.3.3; python_version >= '3.14'"
+#> [3] "python-dateutil>=2.8.2"
+#> [4] "tzdata; sys_platform == 'win32'"
+#> [5] "tzdata; sys_platform == 'emscripten'"
+```
 
-[database]
-ports = [8000, 8001, 8002]
-enabled = true
-')
+Read only the part you need with a path:
 
-x$owner$dob
-#> [1] "1979-05-27 15:32:00 UTC"
-x$database$ports
-#> [1] 8000 8001 8002
+``` r
+
+toml_read(pyproject, select = "project.optional-dependencies.excel")
+#> [1] "odfpy>=1.4.1"           "openpyxl>=3.1.5"        "python-calamine>=0.3.0"
+#> [4] "pyxlsb>=1.0.10"         "xlrd>=2.0.1"            "xlsxwriter>=3.2.0"
+```
+
+[`toml_read()`](https://pedrobtz.github.io/zutoml/reference/toml_read.md)
+also takes a file path or a connection, and
+[`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
+a string. Write R values as TOML with
+[`toml_emit()`](https://pedrobtz.github.io/zutoml/reference/toml_emit.md):
+
+``` r
 
 cat(toml_emit(list(name = "zutoml", version = 1L, tags = c("toml", "config"))))
 #> name = "zutoml"
@@ -63,5 +83,6 @@ cat(toml_emit(list(name = "zutoml", version = 1L, tags = c("toml", "config"))))
 
 See
 [`vignette("zutoml")`](https://pedrobtz.github.io/zutoml/articles/zutoml.md)
-for reading `pyproject.toml` and `Cargo.toml` and writing configuration
-files.
+for a tour with `pyproject.toml` and `Cargo.toml`, and the [usage
+guide](https://pedrobtz.github.io/zutoml/articles/usage.html) for every
+task.

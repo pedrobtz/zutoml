@@ -81,31 +81,37 @@
 <div class="section level2">
 <h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
 </h2>
+<p>Read a TOML file straight from a URL, here the <code>pyproject.toml</code> of pandas:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/pedrobtz/zutoml" class="external-link">zutoml</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">'</span></span>
-<span><span class="st">title = "TOML Example"</span></span>
-<span><span class="st"></span></span>
-<span><span class="st">[owner]</span></span>
-<span><span class="st">name = "Tom Preston-Werner"</span></span>
-<span><span class="st">dob = 1979-05-27T07:32:00-08:00</span></span>
-<span><span class="st"></span></span>
-<span><span class="st">[database]</span></span>
-<span><span class="st">ports = [8000, 8001, 8002]</span></span>
-<span><span class="st">enabled = true</span></span>
-<span><span class="st">'</span><span class="op">)</span></span>
+<span><span class="va">pyproject</span> <span class="op">&lt;-</span> <span class="st">"https://raw.githubusercontent.com/pandas-dev/pandas/v3.0.6/pyproject.toml"</span></span>
 <span></span>
-<span><span class="va">x</span><span class="op">$</span><span class="va">owner</span><span class="op">$</span><span class="va">dob</span></span>
-<span><span class="co">#&gt; [1] "1979-05-27 15:32:00 UTC"</span></span>
-<span><span class="va">x</span><span class="op">$</span><span class="va">database</span><span class="op">$</span><span class="va">ports</span></span>
-<span><span class="co">#&gt; [1] 8000 8001 8002</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>name <span class="op">=</span> <span class="st">"zutoml"</span>, version <span class="op">=</span> <span class="fl">1L</span>, tags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"toml"</span>, <span class="st">"config"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/toml_read.html">toml_read</a></span><span class="op">(</span><span class="va">pyproject</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "build-system" "project"      "tool"</span></span>
+<span><span class="va">x</span><span class="op">$</span><span class="va">project</span><span class="op">$</span><span class="va">name</span></span>
+<span><span class="co">#&gt; [1] "pandas"</span></span>
+<span><span class="va">x</span><span class="op">$</span><span class="va">project</span><span class="op">$</span><span class="va">`requires-python`</span></span>
+<span><span class="co">#&gt; [1] "&gt;=3.11"</span></span>
+<span><span class="va">x</span><span class="op">$</span><span class="va">project</span><span class="op">$</span><span class="va">dependencies</span></span>
+<span><span class="co">#&gt; [1] "numpy&gt;=1.26.0; python_version &lt; '3.14'"</span></span>
+<span><span class="co">#&gt; [2] "numpy&gt;=2.3.3; python_version &gt;= '3.14'"</span></span>
+<span><span class="co">#&gt; [3] "python-dateutil&gt;=2.8.2"</span></span>
+<span><span class="co">#&gt; [4] "tzdata; sys_platform == 'win32'"</span></span>
+<span><span class="co">#&gt; [5] "tzdata; sys_platform == 'emscripten'"</span></span></code></pre></div>
+<p>Read only the part you need with a path:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/toml_read.html">toml_read</a></span><span class="op">(</span><span class="va">pyproject</span>, select <span class="op">=</span> <span class="st">"project.optional-dependencies.excel"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "odfpy&gt;=1.4.1"           "openpyxl&gt;=3.1.5"        "python-calamine&gt;=0.3.0"</span></span>
+<span><span class="co">#&gt; [4] "pyxlsb&gt;=1.0.10"         "xlrd&gt;=2.0.1"            "xlsxwriter&gt;=3.2.0"</span></span></code></pre></div>
+<p><code><a href="reference/toml_read.html">toml_read()</a></code> also takes a file path or a connection, and <code><a href="reference/toml_parse.html">toml_parse()</a></code> a string. Write R values as TOML with <code><a href="reference/toml_emit.html">toml_emit()</a></code>:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>name <span class="op">=</span> <span class="st">"zutoml"</span>, version <span class="op">=</span> <span class="fl">1L</span>, tags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"toml"</span>, <span class="st">"config"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; name = "zutoml"</span></span>
 <span><span class="co">#&gt; version = 1</span></span>
 <span><span class="co">#&gt; tags = ["toml", "config"]</span></span></code></pre></div>
-<p>See <code><a href="articles/zutoml.html">vignette("zutoml")</a></code> for reading <code>pyproject.toml</code> and <code>Cargo.toml</code> and writing configuration files.</p>
+<p>See <code><a href="articles/zutoml.html">vignette("zutoml")</a></code> for a tour with <code>pyproject.toml</code> and <code>Cargo.toml</code>, and the <a href="https://pedrobtz.github.io/zutoml/articles/usage.html">usage guide</a> for every task.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

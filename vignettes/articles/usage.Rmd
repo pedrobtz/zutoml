@@ -152,6 +152,44 @@ identical(toml_parse(toml_emit(cfg))$users, cfg$users)
 `na = "omit"`. Arrays past `width` characters are written one element per
 line, and `inline = n` writes small flat tables inline.
 
+## Infrastructure configuration
+
+Many infrastructure tools are configured in TOML: Traefik, containerd,
+GitLab Runner, Telegraf, Netlify, Cloudflare's `wrangler.toml`, Fly.io's
+`fly.toml`. Reading one is the same as reading any document, here Traefik's
+sample static configuration, pinned to a release:
+
+```{r}
+traefik <- "https://raw.githubusercontent.com/traefik/traefik/v3.7.14/traefik.sample.toml"
+static <- toml_read(traefik)
+names(static)
+static$entryPoints$websecure
+```
+
+Writing is where TOML from R pays off: a configuration generated from data.
+This is a Traefik dynamic configuration that routes a host to a set of
+backends:
+
+```{r}
+backends <- c("http://10.0.0.1:8080", "http://10.0.0.2:8080")
+dynamic <- list(http = list(
+  routers = list(app = list(
+    rule = "Host(`app.example.com`)",
+    service = "app",
+    entryPoints = I("websecure"),
+    tls = list(certResolver = "letsencrypt")
+  )),
+  services = list(app = list(
+    loadBalancer = list(servers = lapply(backends, function(u) list(url = u)))
+  ))
+))
+cat(toml_emit(dynamic))
+```
+
+`I("websecure")` keeps a one-element array an array, which Traefik expects;
+the list of servers becomes an array of tables. Write it where Traefik
+watches for files with `toml_write(dynamic, "dynamic.toml")`.
+
 ## Choose how one value is written
 
 Markers change how a value is written, never what it reads back as:

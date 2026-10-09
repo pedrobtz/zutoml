@@ -309,11 +309,63 @@ characters are written one element per line, and <code>inline = n</code>
 writes small flat tables inline.</p>
 </div>
 <div class="section level2">
+<h2 id="infrastructure-configuration">Infrastructure configuration<a class="anchor" aria-label="anchor" href="#infrastructure-configuration"></a>
+</h2>
+<p>Many infrastructure tools are configured in TOML: Traefik,
+containerd, GitLab Runner, Telegraf, Netlify, Cloudflare’s
+<code>wrangler.toml</code>, Fly.io’s <code>fly.toml</code>. Reading one
+is the same as reading any document, here Traefik’s sample static
+configuration, pinned to a release:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">traefik</span> <span class="op">&lt;-</span> <span class="st">"https://raw.githubusercontent.com/traefik/traefik/v3.7.14/traefik.sample.toml"</span></span>
+<span><span class="va">static</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/toml_read.html">toml_read</a></span><span class="op">(</span><span class="va">traefik</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">static</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "global"      "entryPoints" "log"         "api"         "ping"       </span></span>
+<span><span class="co">#&gt; [6] "providers"</span></span>
+<span><span class="va">static</span><span class="op">$</span><span class="va">entryPoints</span><span class="op">$</span><span class="va">websecure</span></span>
+<span><span class="co">#&gt; $address</span></span>
+<span><span class="co">#&gt; [1] ":443"</span></span></code></pre></div>
+<p>Writing is where TOML from R pays off: a configuration generated from
+data. This is a Traefik dynamic configuration that routes a host to a
+set of backends:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">backends</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"http://10.0.0.1:8080"</span>, <span class="st">"http://10.0.0.2:8080"</span><span class="op">)</span></span>
+<span><span class="va">dynamic</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>http <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  routers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>app <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    rule <span class="op">=</span> <span class="st">"Host(`app.example.com`)"</span>,</span>
+<span>    service <span class="op">=</span> <span class="st">"app"</span>,</span>
+<span>    entryPoints <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="st">"websecure"</span><span class="op">)</span>,</span>
+<span>    tls <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>certResolver <span class="op">=</span> <span class="st">"letsencrypt"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span><span class="op">)</span>,</span>
+<span>  services <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>app <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    loadBalancer <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>servers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">backends</span>, <span class="kw">function</span><span class="op">(</span><span class="va">u</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>url <span class="op">=</span> <span class="va">u</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="va">dynamic</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [http.routers.app]</span></span>
+<span><span class="co">#&gt; rule = "Host(`app.example.com`)"</span></span>
+<span><span class="co">#&gt; service = "app"</span></span>
+<span><span class="co">#&gt; entryPoints = ["websecure"]</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; [http.routers.app.tls]</span></span>
+<span><span class="co">#&gt; certResolver = "letsencrypt"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; [[http.services.app.loadBalancer.servers]]</span></span>
+<span><span class="co">#&gt; url = "http://10.0.0.1:8080"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; [[http.services.app.loadBalancer.servers]]</span></span>
+<span><span class="co">#&gt; url = "http://10.0.0.2:8080"</span></span></code></pre></div>
+<p><code>I("websecure")</code> keeps a one-element array an array, which
+Traefik expects; the list of servers becomes an array of tables. Write
+it where Traefik watches for files with
+<code>toml_write(dynamic, "dynamic.toml")</code>.</p>
+</div>
+<div class="section level2">
 <h2 id="choose-how-one-value-is-written">Choose how one value is written<a class="anchor" aria-label="anchor" href="#choose-how-one-value-is-written"></a>
 </h2>
 <p>Markers change how a value is written, never what it reads back
 as:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_emit.html">toml_emit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  dependencies <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    serde <span class="op">=</span> <span class="fu"><a href="../reference/toml-markers.html">toml_inline</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>version <span class="op">=</span> <span class="st">"1.0"</span>, features <span class="op">=</span> <span class="st">"derive"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -339,7 +391,7 @@ and <code><a href="../reference/toml-markers.html">toml_multiline()</a></code> w
 <p><code>positions = TRUE</code> records where every key and array
 element is defined, so a check on a configuration can say where the
 problem is:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cfg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"[server]\nhost = 'localhost'\nport = 99999\n"</span>, positions <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">pos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">cfg</span>, <span class="st">"toml_positions"</span><span class="op">)</span></span>
 <span><span class="va">pos</span></span>
@@ -359,7 +411,7 @@ problem is:</p>
 <p><code><a href="../reference/toml_validate.html">toml_validate()</a></code> runs the whole check without building
 any R value. It returns <code>TRUE</code> or <code>FALSE</code>, or with
 <code>error = TRUE</code> raises the reason:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/toml_validate.html">toml_validate</a></span><span class="op">(</span><span class="st">"a = 1\nb = 2"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
 <span><span class="fu"><a href="../reference/toml_validate.html">toml_validate</a></span><span class="op">(</span><span class="st">"a = 1\na = 2"</span><span class="op">)</span></span>
@@ -373,7 +425,7 @@ any R value. It returns <code>TRUE</code> or <code>FALSE</code>, or with
 <p>Every error has a class, so it can be caught by kind. Parse errors
 carry the <code>line</code>, <code>column</code>, byte
 <code>offset</code> and <code>kind</code> of the fault:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">err</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"[t]\nx = 1\n[t]\n"</span><span class="op">)</span>, zutoml_parse_error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">err</span><span class="op">$</span><span class="va">kind</span>, <span class="va">err</span><span class="op">$</span><span class="va">line</span>, <span class="va">err</span><span class="op">$</span><span class="va">column</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "table_redefined" "3"               "2"</span></span></code></pre></div>
@@ -432,7 +484,7 @@ carry the <code>line</code>, <code>column</code>, byte
 </h2>
 <p>Four limits bound what a document can make zutoml do, and are checked
 before any R value is built:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"a = "</span>, <span class="fu"><a href="https://rdrr.io/r/base/strrep.html" class="external-link">strrep</a></span><span class="op">(</span><span class="st">"["</span>, <span class="fl">200</span><span class="op">)</span><span class="op">)</span>, max_depth <span class="op">=</span> <span class="fl">64</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error : TOML limit reached at line 1, column 69: the document nests deeper than max_depth = 64</span></span></code></pre></div>
 <table class="table">
@@ -479,7 +531,7 @@ it</td>
 trailing commas in inline tables. <code>version = "1.0.0"</code> reads
 strictly. The emitter always writes text that TOML 1.0.0 readers
 accept.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"t = 07:30"</span><span class="op">)</span><span class="op">$</span><span class="va">t</span></span>
 <span><span class="co">#&gt; [1] "07:30:00"</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="../reference/toml_parse.html">toml_parse</a></span><span class="op">(</span><span class="st">"t = 07:30"</span>, version <span class="op">=</span> <span class="st">"1.0.0"</span><span class="op">)</span><span class="op">)</span></span>

@@ -52,7 +52,7 @@ test_that("files that cannot be read are refused by class", {
 })
 
 test_that("a URL that cannot be opened is an io error, without a warning", {
-  # A file:// URL goes through url() and fails in open(), as an HTTP 404
+  # A file:// URL is opened as a URL connection and fails, as an HTTP 404
   # does, without needing the network.
   missing <- paste0("file://", file.path(tempdir(), "no-such-file.toml"))
   before <- nrow(showConnections(all = TRUE))

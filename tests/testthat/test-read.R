@@ -51,6 +51,18 @@ test_that("files that cannot be read are refused by class", {
   )
 })
 
+test_that("a URL that cannot be opened is an io error, without a warning", {
+  # A file:// URL goes through url() and fails in open(), as an HTTP 404
+  # does, without needing the network.
+  missing <- paste0("file://", file.path(tempdir(), "no-such-file.toml"))
+  before <- nrow(showConnections(all = TRUE))
+  expect_no_warning(
+    err <- tryCatch(toml_read(missing), error = identity)
+  )
+  expect_s3_class(err, "zutoml_io_error")
+  expect_identical(nrow(showConnections(all = TRUE)), before)
+})
+
 test_that("a parse error in a file has its position", {
   path <- withr::local_tempfile(fileext = ".toml")
   writeLines(c("a = 1", "a = 2"), path)

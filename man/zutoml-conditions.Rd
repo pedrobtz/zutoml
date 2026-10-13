@@ -30,8 +30,8 @@ Carries \code{path}.}
 \code{zutoml_size_limit}, \code{zutoml_depth_limit}, \code{zutoml_item_limit} and
 \code{zutoml_string_limit} name which one. Carries \code{limit}, the argument's
 name, such as \code{"max_depth"}, and \code{limit_value}.}
-\item{\code{zutoml_io_error}}{A file or connection could not be read or
-written.}
+\item{\code{zutoml_io_error}}{A file, URL or connection could not be opened,
+read or written.}
 \item{\code{zutoml_missing_key}}{\code{\link[=toml_parse]{toml_parse()}}'s \code{select} names a path the
 document does not have. Carries \code{path}, the path asked for, and
 \code{found}, the part of it that exists.}

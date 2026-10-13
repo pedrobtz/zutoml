@@ -397,7 +397,7 @@ zutoml_error
 │   ├── zutoml_depth_limit
 │   ├── zutoml_item_limit
 │   └── zutoml_string_limit
-├── zutoml_io_error           the file or connection could not be read or written
+├── zutoml_io_error           the file, URL or connection could not be opened, read or written
 └── zutoml_missing_key        select = names a path the document does not have (D20)
 ```
 

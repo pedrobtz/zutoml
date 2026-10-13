@@ -102,7 +102,7 @@ is C: `xsum_jll`'s own files name only its wrapper repository.
 str(toml_read(file.path(root, pkgs$path[pkgs$name == "xsum_jll"], "Package.toml")))
 ```
 
-The language is in the Yggdrasil recipe, outside the registry.
+The binary itself can say more: see [Inside the binaries](#inside-the-binaries).
 
 ## Every package
 
@@ -195,50 +195,112 @@ head(sort(used[names(used) %in% pkgs$name], decreasing = TRUE), 15)
 ## Packages with compiled code
 
 The registry records metadata, not source, so it cannot say which language
-a package is written in. Dependencies come close:
-
-* a `_jll` package *is* compiled code;
-* a package that depends on a `_jll` calls compiled code;
-* a package that depends on `CxxWrap`, or on `libcxxwrap_julia_jll`, wraps
-  C++;
-* a binary that depends on `CompilerSupportLibraries_jll` needs GCC's runtime
-  libraries: `libgfortran` (Fortran), `libstdc++` (C++) or `libgomp`
-  (OpenMP), without saying which.
+a package is written in. Dependencies come close: a `_jll` package *is*
+compiled code, a package that depends on one calls compiled code, and a
+package that depends on `CxxWrap` wraps C++.
 
 ```{r}
-uses <- function(names) vapply(pkgs$deps, function(d) any(d %in% names), NA)
 pkgs$calls_jll <- vapply(pkgs$deps, function(d) any(endsWith(d, "_jll")), NA)
-pkgs$cxx <- uses(c("CxxWrap", "libcxxwrap_julia_jll"))
-pkgs$gcc_runtime <- uses("CompilerSupportLibraries_jll")
+pkgs$cxxwrap <- vapply(pkgs$deps, function(d) "CxxWrap" %in% d, NA)
+callers <- pkgs[!pkgs$jll & pkgs$calls_jll, ]
+c(packages = sum(!pkgs$jll), call_a_jll = nrow(callers), cxxwrap = sum(callers$cxxwrap))
+```
 
-with(pkgs[!pkgs$jll, ], c(
-  packages = length(name),
-  call_a_jll = sum(calls_jll),
-  wrap_cxx = sum(cxx)
+### Inside the binaries
+
+Each `_jll` package has an `Artifacts.toml`, one entry per platform it was
+built for. BinaryBuilder adds two tags to that platform when the binary
+needs them, and both name a language:
+
+* `libgfortran_version`: the binary links GCC's Fortran runtime, because it
+  has Fortran code or Fortran bindings;
+* `cxxstring_abi`: the binary passes C++ `std::string`s across its
+  interface, so it is C++.
+
+`xsum_jll` has neither; `Arpack_jll` links `libgfortran`:
+
+```
+[[Arpack]]
+arch = "aarch64"
+git-tree-sha1 = "d626d3e001367ad1c01b8c5580939702be031ee1"
+libgfortran_version = "5.0.0"
+os = "macos"
+```
+
+`Artifacts.toml` is in the package, not in the registry. Julia's package
+server hands out any registered version as a tarball, named by the package's
+UUID and the `git-tree-sha1` that `Versions.toml` records, so the files read
+are exactly those of the pinned registry. `download.file()` fetches the
+tarballs of every `_jll` the callers use, about 8 kB each, in parallel.
+
+```{r}
+jlls <- pkgs[pkgs$jll & pkgs$name %in% unlist(callers$deps), ]
+nrow(jlls)
+jlls$tree <- mapply(
+  function(v, latest) v[[latest]][["git-tree-sha1"]],
+  versions[match(jlls$name, pkgs$name)], jlls$latest
+)
+jll_dir <- tempfile("jll")
+dir.create(jll_dir)
+tarballs <- file.path(jll_dir, paste0(jlls$name, ".tar.gz"))
+withr::with_options(list(timeout = 600), download.file(
+  sprintf("https://pkg.julialang.org/package/%s/%s", jlls$uuid, jlls$tree),
+  tarballs,
+  method = "libcurl", quiet = TRUE, mode = "wb"
 ))
 ```
 
-Ordinary packages that wrap C++ through CxxWrap:
+Every platform entry carries the same tags, so the first one is enough, and
+`select` reads only that. An artifact is usually named after its package
+(`xsum` in `xsum_jll`); when it is not, `select` raises `zutoml_missing_key`
+and the whole file is read instead.
 
 ```{r}
-pkgs$name[!pkgs$jll & pkgs$cxx]
+first_artifact <- function(name, tarball) {
+  exdir <- file.path(jll_dir, name)
+  untar(tarball, files = "Artifacts.toml", exdir = exdir)
+  file <- file.path(exdir, "Artifacts.toml")
+  tryCatch(
+    toml_read(file, select = paste0(sub("_jll$", "", name), "[1]")),
+    zutoml_missing_key = function(e) {
+      artifact <- toml_read(file)[[1]]
+      if (is.null(names(artifact))) artifact[[1]] else artifact
+    }
+  )
+}
+artifacts <- Map(first_artifact, jlls$name, tarballs)
+jlls$fortran <- vapply(artifacts, function(a) !is.null(a$libgfortran_version), NA)
+jlls$cxx <- vapply(artifacts, function(a) !is.null(a$cxxstring_abi), NA)
+table(fortran = jlls$fortran, cxx = jlls$cxx)
 ```
 
-The binaries other packages depend on most:
+A package is marked with every language its binaries show.
+`CompilerSupportLibraries_jll` is left out: it *is* GCC's runtime, for
+Fortran, C++ and OpenMP together, so depending on it does not say which.
 
 ```{r}
-jll_used <- unlist(pkgs$deps[!pkgs$jll])
-head(sort(table(jll_used[endsWith(jll_used, "_jll")]), decreasing = TRUE), 15)
+any_of <- function(flag) {
+  tagged <- setdiff(jlls$name[flag], "CompilerSupportLibraries_jll")
+  vapply(callers$deps, function(d) any(d %in% tagged), NA)
+}
+callers$fortran <- any_of(jlls$fortran)
+callers$cxx <- any_of(jlls$cxx) | callers$cxxwrap
+c(fortran = sum(callers$fortran), cxx = sum(callers$cxx), neither = sum(!callers$fortran & !callers$cxx))
 ```
 
-Binaries that need GCC's runtime libraries. This is where Fortran libraries
-such as Arpack, HSL or Sundials are found, mixed with C++ and OpenMP ones:
+The packages that call Fortran, with the binaries that show it:
 
 ```{r}
-gcc <- pkgs[pkgs$jll & pkgs$gcc_runtime, "name"]
-length(gcc)
-head(sort(gcc), 40)
+fortran_jlls <- setdiff(jlls$name[jlls$fortran], "CompilerSupportLibraries_jll")
+via <- vapply(callers$deps[callers$fortran], function(d) {
+  paste(intersect(d, fortran_jlls), collapse = ", ")
+}, "")
+head(data.frame(package = callers$name[callers$fortran], via), 20)
 ```
 
-Telling these apart needs the build recipes in Yggdrasil, or the packages'
-own source; the registry has taken us as far as it can.
+The tags show what a binary *needs*, which is a lower bound. Much C++
+passes no strings across its interface and is not tagged, and a binary with
+neither tag may be C, C++, Rust or Go. `MPICH_jll` and `HDF5_jll` are tagged
+for their Fortran bindings, though they are mostly C. The build recipes in
+[Yggdrasil](https://github.com/JuliaPackaging/Yggdrasil) are the full
+answer; the TOML has taken us a long way towards it.

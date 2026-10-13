@@ -1,3 +1,24 @@
-docs
+# RStudio / R session
 .Rproj.user
 .Rhistory
+.RData
+.Ruserdata
+
+# Compiled objects and shared libraries, in src/
+*.o
+*.so
+*.dll
+*.dylib
+*.a
+
+# R package build / check output
+*.tar.gz
+*.Rcheck/
+docs
+
+# Built vignettes, from devtools::build_vignettes()
+/doc/
+/Meta/
+
+# Written by devtools::submit_cran(); records one submission, not the source.
+CRAN-SUBMISSION

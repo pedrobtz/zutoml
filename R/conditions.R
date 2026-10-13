@@ -28,8 +28,8 @@
 #'     `zutoml_size_limit`, `zutoml_depth_limit`, `zutoml_item_limit` and
 #'     `zutoml_string_limit` name which one. Carries `limit`, the argument's
 #'     name, such as `"max_depth"`, and `limit_value`.}
-#'   \item{`zutoml_io_error`}{A file or connection could not be read or
-#'     written.}
+#'   \item{`zutoml_io_error`}{A file, URL or connection could not be opened,
+#'     read or written.}
 #'   \item{`zutoml_missing_key`}{[toml_parse()]'s `select` names a path the
 #'     document does not have. Carries `path`, the path asked for, and
 #'     `found`, the part of it that exists.}

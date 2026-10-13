@@ -8,6 +8,8 @@
 #' with [url()], any other string as a file path. A connection that is not
 #' open is opened in `"rb"` mode and closed afterwards; an open one must be
 #' binary, is read from its current position, and is left open.
+#' A URL or file that cannot be opened, such as one that answers HTTP 404,
+#' fails with `zutoml_io_error`.
 #'
 #' @param file A file path, a URL, or a connection.
 #' @param ... Arguments passed on to [toml_parse()].
@@ -33,7 +35,13 @@ ztm_read_bounded <- function(file, max_size) {
     file,
     what = "file",
     prefix = "zutoml",
-    abort = function(arg, message) ztm_invalid_argument(arg, message)
+    abort = function(arg, message) ztm_invalid_argument(arg, message),
+    fail = function(message) {
+      ztm_abort(
+        "zutoml_io_error",
+        paste0("could not open the input: ", message)
+      )
+    }
   )
   if (input$close) {
     on.exit(close(input$con), add = TRUE)

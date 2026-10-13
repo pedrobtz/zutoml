@@ -33,3 +33,4 @@ articles:
     contents:
       - zutoml
       - articles/usage
+      - articles/julia-registry

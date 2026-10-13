@@ -2,7 +2,14 @@
 # live here, not at the top of a test file, because
 # devtools::test(shuffle = TRUE) reorders a file's top-level expressions.
 
-toml_test_dir <- function() test_path("toml-test")
+# The suite is in the source tree only: .Rbuildignore keeps it out of the
+# tarball, so under R CMD check (CRAN, and the sanitizer and valgrind legs)
+# the tests that read it skip. conformance.yaml runs them from the checkout.
+toml_test_dir <- function() {
+  dir <- test_path("toml-test")
+  skip_if_not(dir.exists(dir), "the toml-test suite is not in the tarball")
+  dir
+}
 
 toml_test_manifest <- function() {
   utils::read.delim(

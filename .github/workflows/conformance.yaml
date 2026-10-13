@@ -2,7 +2,8 @@
 # the pinned tag; every case, for TOML 1.0.0 and 1.1.0, gives the answer it
 # should through toml_validate(); and toml_emit()'s text for every valid
 # case is accepted by toml-test's reference decoder (BurntSushi/toml, pinned)
-# and by Python's tomllib (acceptance criterion 3).
+# and by Python's tomllib (acceptance criterion 3). The suite stays out of
+# the tarball, so the testthat tests that read it run here too.
 on:
   push:
     branches: [main, master]
@@ -27,7 +28,7 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
-          extra-packages: any::pkgload
+          extra-packages: any::pkgload, any::testthat, any::jsonlite, any::withr
       - uses: actions/setup-go@v7
         with:
           go-version: stable
@@ -37,3 +38,12 @@ jobs:
           go install github.com/BurntSushi/toml/cmd/toml-test-decoder@v1.6.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - run: tools/run-conformance
+      # The suite is not in the tarball (.Rbuildignore), so the testthat
+      # tests that read it, each case parsed to its expected value and
+      # round-tripped through the emitter, run here from the checkout.
+      - name: testthat tests that read the suite
+        run: >
+          Rscript -e 'testthat::test_local(filter =
+          "conformance|fixtures|info|fuzz-r", stop_on_failure = TRUE)'
+        env:
+          ZUTOML_SLOW_TESTS: true

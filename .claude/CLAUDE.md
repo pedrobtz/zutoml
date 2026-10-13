@@ -88,8 +88,8 @@ src/          init.c                      registration only
 fuzz/         fuzz_parse.c, fuzz_canary.c, probe.c (the mutation check's driver), arena.c
               (not in the tarball)
 tools/        gate scripts above
-tests/testthat/toml-test/   the suite at a pinned tag, with manifest.tsv (not under fixtures/:
-              the 100-byte tarball path limit)
+tests/testthat/toml-test/   the suite at a pinned tag, with manifest.tsv (not in the tarball:
+              the tests that read it skip under R CMD check and run in conformance.yaml)
 .agents/      design.md, roadmap.md
 ```
 
@@ -129,7 +129,7 @@ The pipeline is: validate and decode the input in R → **check phase** (`ztm_le
 - **Self-contained.** Global state through `withr::local_*()`, randomised input through `withr::local_seed()`. Tests write only under `tempdir()`.
 - **Assert on condition classes and fields, never message text.** `expect_error(..., class = "zutoml_parse_error")` plus `kind`, `line`, `column`, `offset` or `path`. Wording belongs in snapshot tests.
 - **Order independence.** `devtools::test(shuffle = TRUE)` is part of the definition of done. Serial: no `Config/testthat/parallel`, so gctorture and valgrind see the C.
-- **The conformance suite is `toml-test`** (MIT; v2.2.0 on 2026-10-08), fetched only by `tools/update-fixtures` into `tests/testthat/toml-test/` with a manifest, never hand-edited. Its tagged JSON expectations are compared type by type against `toml_parse(d, simplify = "none")` twice: with `datetimes = "keep"`, and with `datetimes = "convert", local_time = "difftime"` (only the second tells a date from a string). `test-conformance.R` skips until `toml_validate()` (Stage 3) and `toml_parse()` (Stage 4) are exported, then every case must pass. It does not cover the lattice, `data_frame =`, the limits or the hostile inputs, which are the package's own tests.
+- **The conformance suite is `toml-test`** (MIT; v2.2.0 on 2026-10-08), fetched only by `tools/update-fixtures` into `tests/testthat/toml-test/` with a manifest, never hand-edited. Its tagged JSON expectations are compared type by type against `toml_parse(d, simplify = "none")` twice: with `datetimes = "keep"`, and with `datetimes = "convert", local_time = "difftime"` (only the second tells a date from a string). `test-conformance.R` skips until `toml_validate()` (Stage 3) and `toml_parse()` (Stage 4) are exported, then every case must pass. The suite is in `.Rbuildignore`, so it is not on CRAN and its authors are not in `Authors@R`: the tests that read it skip when it is absent (`toml_test_dir()`), and `conformance.yaml` runs them from the checkout. It does not cover the lattice, `data_frame =`, the limits or the hostile inputs, which are the package's own tests.
 - **Helpers live in `tests/testthat/helper-*.R`**: `helper-expect.R` (`expect_toml()`, `expect_roundtrip()`, `expect_zutoml_error()`), `helper-fixtures.R` (`toml_test_cases()`, `tagged_json_to_r()`, `toml_test_diff()`, tested in `test-helper-fixtures.R`), `helper-skip.R` (`skip_heavy()` on `ZUTOML_SKIP_HEAVY`, set by the gctorture and valgrind legs; `skip_if_no_slow_tests()` on `ZUTOML_SLOW_TESTS`; `skip_until_exported()`).
 - **Never write an expected double as a long decimal literal**: R's parser on macOS arm64 rounds some to a neighbouring double. Use exact forms (`2^53`, `-2^63`) or bits.
 - **Keep the suite inside the CRAN time budget:** under 15 s; the 10^6-element hostile inputs call `skip_heavy()`.

@@ -13,3 +13,4 @@
 ^CRAN-SUBMISSION$
 ^vignettes/articles$
 ^air\.toml$
+^tests/testthat/toml-test$

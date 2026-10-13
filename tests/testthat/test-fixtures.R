@@ -26,8 +26,11 @@ test_that("the suite is the pinned version with the expected case counts", {
 })
 
 test_that("every valid case's expectation converts to an R value", {
-  skip_if_not_installed("jsonlite")
+  skip_if_not_installed("zujson")
   cases <- toml_test_cases("valid", "1.0.0")
+  # The expectations of the cases R cannot hold have U+0000 in a key or a
+  # string, which zujson refuses to read (design section 6.4).
+  cases <- cases[!cases$name %in% toml_test_unrepresentable, ]
   for (i in seq_len(nrow(cases))) {
     j <- tagged_json_read(cases$json[[i]])
     for (dt in c("keep", "convert")) {

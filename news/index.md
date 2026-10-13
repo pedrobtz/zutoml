@@ -6,7 +6,9 @@
 
 - [`toml_read()`](https://pedrobtz.github.io/zutoml/reference/toml_read.md)
   reads a TOML document from a file, URL or connection, never holding
-  more than `max_size + 1` bytes.
+  more than `max_size + 1` bytes. A URL or file that cannot be opened is
+  a `zutoml_io_error` naming the cause
+  (`HTTP status was '404 Not Found'`), with no stray warning.
 
 - [`toml_parse()`](https://pedrobtz.github.io/zutoml/reference/toml_parse.md)
   reads a TOML document into ordinary R values: tables as named lists in

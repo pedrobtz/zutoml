@@ -42,7 +42,7 @@ class below inherits from `zutoml_error`.
 
 - `zutoml_io_error`:
 
-  A file or connection could not be read or written.
+  A file, URL or connection could not be opened, read or written.
 
 - `zutoml_missing_key`:
 

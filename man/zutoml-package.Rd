@@ -23,6 +23,12 @@ Authors:
 Other contributors:
 \itemize{
   \item TOML authors (the 'toml-test' suite in tests/testthat/toml-test) [copyright holder]
+  \item Bjoern Hoehrmann (UTF-8 decoder state table, compiled in from 'zufast') [copyright holder]
+  \item Daniel Lemire (fast_float, compiled in from 'zufast' as ffc.h) [copyright holder]
+  \item João Paulo Magalhaes (fast_float, compiled in from 'zufast' as ffc.h) [copyright holder]
+  \item The fast_float authors (fast_float, compiled in from 'zufast' as ffc.h) [copyright holder]
+  \item Koleman Nix (ffc.h, the C port of fast_float, compiled in from 'zufast') [copyright holder]
+  \item Ulf Adams (Ryu, compiled in from 'zufast') [copyright holder]
 }
 
 }

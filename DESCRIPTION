@@ -24,11 +24,11 @@ Depends:
 LinkingTo: 
     zufast (>= 0.1.0)
 Suggests: 
-    jsonlite,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
-    withr
+    withr,
+    zujson
 VignetteBuilder: knitr
 Remotes: 
     pedrobtz/zufast@main

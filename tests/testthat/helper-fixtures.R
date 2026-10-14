@@ -52,8 +52,10 @@ toml_test_bytes <- function(path) readBin(path, "raw", file.size(path))
 # returns: every array a list, every table a named list, and scalars by type.
 # `datetimes` and `local_time` mirror toml_parse()'s arguments.
 
+# simplify = FALSE keeps every array a list and every object a named list,
+# an empty object with empty names.
 tagged_json_read <- function(path) {
-  jsonlite::fromJSON(path, simplifyVector = FALSE)
+  zujson::json_parse_file(path, simplify = FALSE)
 }
 
 tagged_json_to_r <- function(

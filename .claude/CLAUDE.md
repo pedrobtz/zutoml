@@ -154,7 +154,7 @@ The pipeline is: validate and decode the input in R → **check phase** (`ztm_le
 - Keep prose simple and short, en-GB (`Language: en-GB`; domain terms in `inst/WORDLIST`). One idea per sentence.
 - Wrap roxygen text at 80 characters and run `air format .` on R sources.
 - `lower_snake_case`; the naming table above.
-- Keep hard runtime dependencies at zero. `Suggests` only: `jsonlite` for the suite's expectation files, `withr`, `testthat`, `knitr`, `rmarkdown`.
+- Keep hard runtime dependencies at zero. `Suggests` only: `zujson` for the suite's expectation files, `withr`, `testthat`, `knitr`, `rmarkdown`.
 - Export and document public functions, each with `@return` and runnable `@examples`. No roxygen topics for internals.
 - `R/zu_source.R` is copied verbatim from `../zuxml`; fix it there and re-copy. `air.toml` excludes it from `air format`.
 - `NEWS.md` keeps a versioned heading (`# zutoml 0.0.0.9000`): a bare "development version" heading is a check NOTE once it is the only one.

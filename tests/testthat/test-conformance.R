@@ -36,7 +36,7 @@ test_that("every invalid toml-test case is refused with a position", {
 })
 
 test_that("every valid toml-test case parses to its expected value", {
-  skip_if_not_installed("jsonlite")
+  skip_if_not_installed("zujson")
   for (version in c("1.0.0", "1.1.0")) {
     cases <- toml_test_cases("valid", version)
     for (i in seq_len(nrow(cases))) {

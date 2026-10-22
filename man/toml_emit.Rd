@@ -64,7 +64,7 @@ is always text \code{\link[=toml_parse]{toml_parse()}} reads back.
    \code{logical} \tab boolean \cr
    \code{POSIXct} with a time zone \tab offset date-time, in UTC (\code{Z}) \cr
    \code{POSIXct} with no time zone (\code{tzone = ""}) \tab local date-time \cr
-   \code{Date} \tab local date \cr
+   \code{Date} \tab local date; a fractional one as its day \cr
    \code{difftime} in seconds, from 0 to a day \tab local time \cr
    \code{\link[=toml_bigint]{toml_bigint()}} \tab integer \cr
    \code{factor} \tab its labels, as strings \cr
@@ -85,8 +85,11 @@ A string with a newline is written as a multi-line string.
 Refused with \code{zutoml_unsupported_type}: complex and raw vectors,
 functions, environments, \code{POSIXlt}, matrices and arrays with \code{dim}, and
 atomic vectors of other classes. \code{NA} and \code{NULL}, which TOML has no form
-for, raise \code{zutoml_na_error} unless \code{na = "omit"}. Each condition
-carries \code{path}, the key path of the value at fault, as \verb{a.b[3].c}.
+for, raise \code{zutoml_na_error} unless \code{na = "omit"}. A value that breaks
+its class's invariants raises \code{zutoml_invalid_argument}: a data frame
+without a name for every column, or with a column that is not a vector of
+one cell per row, and an infinite date or time. Each condition carries
+\code{path}, the key path of the value at fault, as \verb{a.b[3].c}.
 }
 
 \examples{

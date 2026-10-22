@@ -86,7 +86,7 @@ final newline. `toml_write()`: `file`, invisibly.
 | `logical` | boolean |
 | `POSIXct` with a time zone | offset date-time, in UTC (`Z`) |
 | `POSIXct` with no time zone (`tzone = ""`) | local date-time |
-| `Date` | local date |
+| `Date` | local date; a fractional one as its day |
 | `difftime` in seconds, from 0 to a day | local time |
 | [`toml_bigint()`](https://pedrobtz.github.io/zutoml/reference/toml_bigint.md) | integer |
 | `factor` | its labels, as strings |
@@ -105,7 +105,10 @@ A string with a newline is written as a multi-line string.
 Refused with `zutoml_unsupported_type`: complex and raw vectors,
 functions, environments, `POSIXlt`, matrices and arrays with `dim`, and
 atomic vectors of other classes. `NA` and `NULL`, which TOML has no form
-for, raise `zutoml_na_error` unless `na = "omit"`. Each condition
+for, raise `zutoml_na_error` unless `na = "omit"`. A value that breaks
+its class's invariants raises `zutoml_invalid_argument`: a data frame
+without a name for every column, or with a column that is not a vector
+of one cell per row, and an infinite date or time. Each condition
 carries `path`, the key path of the value at fault, as `a.b[3].c`.
 
 ## Examples

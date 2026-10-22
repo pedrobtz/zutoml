@@ -4,9 +4,6 @@
 
 - **Pedro Baltazar**. Author, maintainer, copyright holder.
 
-- **TOML authors**. Copyright holder.  
-  the 'toml-test' suite in tests/testthat/toml-test
-
 ## Citation
 
 Source:

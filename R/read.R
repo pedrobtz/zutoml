@@ -26,8 +26,8 @@ toml_read <- function(file, ..., max_size = 64 * 1024^2) {
 }
 
 # Reads at most max_size + 1 bytes in 64 KiB blocks: one past the limit is
-# enough to know the input is too big, and nothing more is ever held
-# (design section 10). The loop is in R: R_ReadConnection() is experimental
+# enough to know the input is too big. The blocks are joined once at the
+# end, so the peak is about twice the bytes read (design section 10). The loop is in R: R_ReadConnection() is experimental
 # API and costs a NOTE (zucbor's reason).
 ztm_read_bounded <- function(file, max_size) {
   max_size <- ztm_check_limit(max_size, "max_size")

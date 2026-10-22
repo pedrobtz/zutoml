@@ -112,6 +112,14 @@ test_that("select must be a path or keys", {
     expect_s3_class(err, "zutoml_invalid_argument")
     expect_identical(err$arg, "select")
   }
+  # An index past R's integers is refused before as.integer() can warn.
+  withr::local_options(warn = 2)
+  for (bad in c("a[2147483648]", paste0("a[", strrep("9", 400), "]"))) {
+    err <- tryCatch(toml_parse("a = [1]", select = bad), error = identity)
+    expect_s3_class(err, "zutoml_invalid_argument")
+    expect_identical(err$arg, "select")
+  }
+  expect_identical(toml_parse("a = [1]", select = "a[1]"), 1L)
 })
 
 test_that("toml_read() passes select on", {

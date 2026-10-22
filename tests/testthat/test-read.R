@@ -49,6 +49,12 @@ test_that("files that cannot be read are refused by class", {
     tryCatch(toml_read(tc), error = identity),
     "zutoml_invalid_argument"
   )
+  # A closed connection is destroyed; isOpen() alone would raise a base error.
+  con <- rawConnection(charToRaw("a = 1"))
+  close(con)
+  err <- tryCatch(toml_read(con), error = identity)
+  expect_s3_class(err, "zutoml_invalid_argument")
+  expect_identical(err$arg, "file")
 })
 
 test_that("a URL that cannot be opened is an io error, without a warning", {

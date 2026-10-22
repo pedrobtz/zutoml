@@ -382,7 +382,7 @@ The lexer and parser follow the ABNF in the TOML v1.0.0 specification clause by 
 
 ## 10. Input sources
 
-`toml_parse()` takes a string (length one, any encoding R knows, translated to UTF-8 first) or a raw vector of UTF-8 bytes. `toml_read()` takes a path, a URL or a connection through `zuxml`'s `zu_open_input()` in `R/zu_source.R`, copied verbatim with its origin header as `zucbor` and `zuhtml` do, reading at most `max_size + 1` bytes in 64 KiB blocks so an endless source fails with `zutoml_size_limit` one byte past the limit. The read loop is in R, not C (`zucbor` §9 says why: `R_ReadConnection()` is experimental API and costs a NOTE). A TOML document is one value; there is no sequence form.
+`toml_parse()` takes a string (length one, any encoding R knows, translated to UTF-8 first) or a raw vector of UTF-8 bytes. `toml_read()` takes a path, a URL or a connection through `zuxml`'s `zu_open_input()` in `R/zu_source.R`, copied verbatim with its origin header as `zucbor` and `zuhtml` do, reading at most `max_size + 1` bytes in 64 KiB blocks so an endless source fails with `zutoml_size_limit` one byte past the limit. The blocks are joined once at the end, so the peak memory is about twice the bytes read, never a function of the source's size. The read loop is in R, not C (`zucbor` §9 says why: `R_ReadConnection()` is experimental API and costs a NOTE). A TOML document is one value; there is no sequence form.
 
 ---
 

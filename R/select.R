@@ -72,6 +72,8 @@ ztm_parse_path <- function(path) {
       if (j > n || chars[[j]] != "]" || j == i + 1L) bad("an index must be [1], [2], ...")
       idx <- as.numeric(paste(chars[(i + 1L):(j - 1L)], collapse = ""))
       if (idx < 1) bad("indices count from 1")
+      # Checked before as.integer(), which would warn and give NA.
+      if (idx > .Machine$integer.max) bad("an index is larger than any array")
       steps[[length(steps) + 1L]] <- as.integer(idx)
       i <- j + 1L
       skip_ws()

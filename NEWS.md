@@ -2,8 +2,8 @@
 
 * Initial CRAN submission.
 
-* `toml_read()` reads a TOML document from a file, URL or connection, never
-  holding more than `max_size + 1` bytes.
+* `toml_read()` reads a TOML document from a file, URL or connection, reading
+  at most `max_size + 1` bytes, so an endless source fails at the limit.
   A URL or file that cannot be opened is a `zutoml_io_error` naming the
   cause (`HTTP status was '404 Not Found'`), with no stray warning.
 * `toml_parse()` reads a TOML document into ordinary R values: tables as

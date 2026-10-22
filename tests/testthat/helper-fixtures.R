@@ -2,7 +2,15 @@
 # live here, not at the top of a test file, because
 # devtools::test(shuffle = TRUE) reorders a file's top-level expressions.
 
-toml_test_dir <- function() test_path("toml-test")
+# The suite is in the git checkout but not in the package tarball
+# (.Rbuildignore): its files are the TOML authors', and shipping them would
+# make them copyright holders of the package. A test that reads it skips
+# where it is absent, as under R CMD check on CRAN; every CI leg has it.
+toml_test_dir <- function() {
+  dir <- test_path("toml-test")
+  skip_if_not(dir.exists(dir), "the toml-test suite is not in the tarball")
+  dir
+}
 
 toml_test_manifest <- function() {
   utils::read.delim(

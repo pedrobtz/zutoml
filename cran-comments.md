@@ -26,7 +26,7 @@ header-only 'zufast' package (by the same maintainer, on CRAN) through
 The package implements the TOML specification, cited in the Description
 (<https://toml.io/en/v1.1.0>); there is no published paper describing it.
 
-The tests include the 'toml-test' conformance suite (MIT licence, the TOML
-authors, credited in `inst/COPYRIGHTS`, which `DESCRIPTION` points to),
-about 130 KB under `tests/testthat/toml-test/`, with its licence beside it.
-The tests use no network.
+The package's conformance tests use the 'toml-test' suite, which is kept
+in the git repository and out of the package tarball; those tests skip
+where it is absent and run in every CI leg. Every file in the tarball is
+the maintainer's. The tests use no network.

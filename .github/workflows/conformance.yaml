@@ -27,7 +27,9 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
-          extra-packages: any::pkgload
+          # testthat, withr and zujson for the testthat tests that read the
+          # suite, which the R CMD check legs skip (it is not in the tarball).
+          extra-packages: any::pkgload, any::testthat, any::withr, any::zujson
       - uses: actions/setup-go@v7
         with:
           go-version: stable

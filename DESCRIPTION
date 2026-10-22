@@ -14,7 +14,6 @@ Description: Parses 'TOML' (Tom's Obvious Minimal Language) documents,
     conformance suite <https://github.com/toml-lang/toml-test>. The parser
     and writer are written in C, with no system library required.
 License: MIT + file LICENSE
-Copyright: See inst/COPYRIGHTS
 URL: https://github.com/pedrobtz/zutoml,
     https://pedrobtz.github.io/zutoml/
 BugReports: https://github.com/pedrobtz/zutoml/issues

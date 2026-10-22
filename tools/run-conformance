@@ -12,7 +12,8 @@
 #       text for every valid case (tools/emit-corpus.R) and requires other
 #       readers to accept it: toml-test's reference decoder ($TOML_DECODER,
 #       or toml-test-decoder on the PATH; BurntSushi/toml's) and Python's
-#       tomllib, each when present. CI installs both.
+#       tomllib, each when present. CI installs both. Then the testthat
+#       tests that read the suite, which R CMD check on a tarball skips.
 set -eu
 
 WORK=$(mktemp -d)
@@ -34,6 +35,12 @@ for v in 1.0.0 1.1.0; do
   echo
   Rscript tools/conformance.R "$v" || fail=1
 done
+
+# The testthat tests that read the suite: expected values, the emitter's
+# round trip, the fixtures. The suite is not in the package tarball, so the
+# R CMD check legs skip them; this job runs them from the checkout.
+echo
+Rscript -e 'testthat::test_local(filter = "^(conformance|emit-conformance|fixtures|info)$", reporter = "summary", stop_on_failure = TRUE)' || fail=1
 
 echo
 Rscript tools/emit-corpus.R "$WORK/emitted"

@@ -1,9 +1,0 @@
-zutoml is copyright Pedro Baltazar, under the MIT licence (see LICENSE).
-
-The package's tests include files it did not write:
-
-tests/testthat/toml-test/
-    The 'toml-test' conformance suite, version v2.2.0
-    <https://github.com/toml-lang/toml-test>.
-    Copyright (c) 2018 TOML authors.
-    MIT licence; the full text is in tests/testthat/toml-test/LICENSE.

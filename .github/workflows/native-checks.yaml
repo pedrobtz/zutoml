@@ -73,12 +73,7 @@ jobs:
     uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@v1
 
   # Blocking from the first run: the C code is new, so any finding is ours.
-  # zufast (LinkingTo) is not on CRAN yet, and the rchk image installs only
-  # from CRAN and Bioconductor: github-packages installs it into the image
-  # first. Drop that input once zufast is on CRAN.
   rchk:
     uses: pedrobtz/r-actions/.github/workflows/rchk.yml@v1
     with:
       fail-on-findings: true
-      github-packages: |
-        pedrobtz/zufast

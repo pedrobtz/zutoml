@@ -1,6 +1,6 @@
 # zutoml — Design
 
-**Status:** Draft, 2026-10-08. Adopted from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md) (2026-10-07) as the package's own specification. Nothing here is implemented: the repository is the `usethis` skeleton plus these documents. Every statement here is a decision; things not yet decided live in §18 and nowhere else. Amend this file in the same commit as the code that changes it. [roadmap.md](roadmap.md) sequences the work; its section references (§) point here.
+**Status:** Draft, 2026-10-08. Adopted from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md) (2026-10-07) as the package's own specification. Implemented in full by 0.1.0 (Stages 0–8 of the roadmap, 2026-10-08); amended since by the review in #29 (2026-10-22). Every statement here is a decision; things not yet decided live in §18 and nowhere else. Amend this file in the same commit as the code that changes it. [roadmap.md](roadmap.md) sequences the work; its section references (§) point here.
 **Package:** `zutoml`
 **One line:** TOML 1.0 documents parsed into ordinary R values and emitted from them, by a C99 parser and emitter of the package's own over `zufast`'s scalars, with `toml-test` as the conformance gate in both directions.
 

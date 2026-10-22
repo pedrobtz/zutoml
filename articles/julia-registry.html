@@ -392,11 +392,15 @@ does not say which.</p>
 <span><span class="co">#&gt;     106      94     660</span></span></code></pre></div>
 <p>The packages that call Fortran, with the binaries that show it:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fortran_jlls</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">jlls</span><span class="op">$</span><span class="va">name</span><span class="op">[</span><span class="va">jlls</span><span class="op">$</span><span class="va">fortran</span><span class="op">]</span>, <span class="st">"CompilerSupportLibraries_jll"</span><span class="op">)</span></span>
-<span><span class="va">via</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">callers</span><span class="op">$</span><span class="va">deps</span><span class="op">[</span><span class="va">callers</span><span class="op">$</span><span class="va">fortran</span><span class="op">]</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">d</span>, <span class="va">fortran_jlls</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span></span>
-<span><span class="op">}</span>, <span class="st">""</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>package <span class="op">=</span> <span class="va">callers</span><span class="op">$</span><span class="va">name</span><span class="op">[</span><span class="va">callers</span><span class="op">$</span><span class="va">fortran</span><span class="op">]</span>, <span class="va">via</span><span class="op">)</span>, <span class="fl">20</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">shown_by</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">flag</span>, <span class="va">rows</span>, <span class="va">also</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">n</span> <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">tagged</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">jlls</span><span class="op">$</span><span class="va">name</span><span class="op">[</span><span class="va">flag</span><span class="op">]</span>, <span class="st">"CompilerSupportLibraries_jll"</span><span class="op">)</span>, <span class="va">also</span><span class="op">)</span></span>
+<span>  <span class="va">via</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">callers</span><span class="op">$</span><span class="va">deps</span><span class="op">[</span><span class="va">rows</span><span class="op">]</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">d</span>, <span class="va">tagged</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span></span>
+<span>  <span class="op">}</span>, <span class="st">""</span><span class="op">)</span></span>
+<span>  <span class="va">keep</span> <span class="op">&lt;-</span> <span class="va">via</span> <span class="op">!=</span> <span class="st">""</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>package <span class="op">=</span> <span class="va">callers</span><span class="op">$</span><span class="va">name</span><span class="op">[</span><span class="va">rows</span><span class="op">]</span><span class="op">[</span><span class="va">keep</span><span class="op">]</span>, via <span class="op">=</span> <span class="va">via</span><span class="op">[</span><span class="va">keep</span><span class="op">]</span><span class="op">)</span>, <span class="va">n</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="fu">shown_by</span><span class="op">(</span><span class="va">jlls</span><span class="op">$</span><span class="va">fortran</span>, <span class="va">callers</span><span class="op">$</span><span class="va">fortran</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                package                           via</span></span>
 <span><span class="co">#&gt; 1       FormationTemps                      HDF5_jll</span></span>
 <span><span class="co">#&gt; 2          TDEPWrapper                      TDEP_jll</span></span>
@@ -418,6 +422,60 @@ does not say which.</p>
 <span><span class="co">#&gt; 18       QRupdatesFast               QRupdate_ng_jll</span></span>
 <span><span class="co">#&gt; 19            PinCFlow           HDF5_jll, MPICH_jll</span></span>
 <span><span class="co">#&gt; 20              MadNLP MUMPS_seq_jll, OpenBLAS32_jll</span></span></code></pre></div>
+<p>The packages that call C++, through a tagged binary or through
+<code>CxxWrap</code>:</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">shown_by</span><span class="op">(</span><span class="va">jlls</span><span class="op">$</span><span class="va">cxx</span>, <span class="va">callers</span><span class="op">$</span><span class="va">cxx</span>, also <span class="op">=</span> <span class="st">"CxxWrap"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;          package                                                via</span></span>
+<span><span class="co">#&gt; 1        XGBoost                       XGBoost_GPU_jll, XGBoost_jll</span></span>
+<span><span class="co">#&gt; 2  ClangCompiler                                     libclangex_jll</span></span>
+<span><span class="co">#&gt; 3         OpenCL                                    SPIRV_Tools_jll</span></span>
+<span><span class="co">#&gt; 4      JuliaChem                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 5         Algoim                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 6      cuNumeric cunumeric_jl_wrapper_jll, cupynumeric_jll, CxxWrap</span></span>
+<span><span class="co">#&gt; 7          Gecko                                 CxxWrap, gecko_jll</span></span>
+<span><span class="co">#&gt; 8         Legate         CxxWrap, legate_jl_wrapper_jll, legate_jll</span></span>
+<span><span class="co">#&gt; 9    LEMONGraphs                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 10          CGAL                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 11        XRootD                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 12          ROOT                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 13        JSBSim                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 14       Whisper                                    whisper_cpp_jll</span></span>
+<span><span class="co">#&gt; 15      QWTWPlot                       marble_jll, Qt_jll, qwtw_jll</span></span>
+<span><span class="co">#&gt; 16          Xyce                                            CxxWrap</span></span>
+<span><span class="co">#&gt; 17        AMDGPU                            AMDGPU_LLVM_Backend_jll</span></span>
+<span><span class="co">#&gt; 18            GR                             GR_jll, Qt6Wayland_jll</span></span>
+<span><span class="co">#&gt; 19    FastNoise2                                     FastNoise2_jll</span></span>
+<span><span class="co">#&gt; 20           QML                            CxxWrap, Qt6Wayland_jll</span></span></code></pre></div>
+<p>No tag says C. The closest the TOML comes is the packages whose
+binaries carry neither tag, Xsum among them. Most of them are C, but not
+all: <code>goaws_jll</code> is Go.</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">neither</span> <span class="op">&lt;-</span> <span class="op">!</span><span class="va">callers</span><span class="op">$</span><span class="va">fortran</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">callers</span><span class="op">$</span><span class="va">cxx</span></span>
+<span><span class="fu">shown_by</span><span class="op">(</span><span class="op">!</span><span class="va">jlls</span><span class="op">$</span><span class="va">fortran</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">jlls</span><span class="op">$</span><span class="va">cxx</span>, <span class="va">neither</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                  package                           via</span></span>
+<span><span class="co">#&gt; 1               LevelDB2                   LevelDB_jll</span></span>
+<span><span class="co">#&gt; 2                 LibSSH Kerberos_krb5_jll, libssh_jll</span></span>
+<span><span class="co">#&gt; 3                  GoAWS                     goaws_jll</span></span>
+<span><span class="co">#&gt; 4               cuTENSOR                  CUTENSOR_jll</span></span>
+<span><span class="co">#&gt; 5                  SpaSM                     Spasm_jll</span></span>
+<span><span class="co">#&gt; 6  LatticeDiracOperators                  AlgRemez_jll</span></span>
+<span><span class="co">#&gt; 7                  NOMAD                     NOMAD_jll</span></span>
+<span><span class="co">#&gt; 8                  cuDNN                     CUDNN_jll</span></span>
+<span><span class="co">#&gt; 9                WGPUgfx                      GLFW_jll</span></span>
+<span><span class="co">#&gt; 10              ImPlot3D                 CImPlot3D_jll</span></span>
+<span><span class="co">#&gt; 11                   VSL                       MKL_jll</span></span>
+<span><span class="co">#&gt; 12                GitOut                       Git_jll</span></span>
+<span><span class="co">#&gt; 13                Blosc2                    Blosc2_jll</span></span>
+<span><span class="co">#&gt; 14                LibIIO                    libiio_jll</span></span>
+<span><span class="co">#&gt; 15        FastTransforms            FastTransforms_jll</span></span>
+<span><span class="co">#&gt; 16                Kissat                    Kissat_jll</span></span>
+<span><span class="co">#&gt; 17             ViennaRNA                 ViennaRNA_jll</span></span>
+<span><span class="co">#&gt; 18             NomnomlJS                   Librsvg_jll</span></span>
+<span><span class="co">#&gt; 19                Hygese                   HGSCVRP_jll</span></span>
+<span><span class="co">#&gt; 20                    Z3                        z3_jll</span></span>
+<span><span class="st">"Xsum"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">callers</span><span class="op">$</span><span class="va">name</span><span class="op">[</span><span class="va">neither</span><span class="op">]</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 <p>The tags show what a binary <em>needs</em>, which is a lower bound.
 Much C++ passes no strings across its interface and is not tagged, and a
 binary with neither tag may be C, C++, Rust or Go.

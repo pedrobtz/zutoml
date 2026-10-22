@@ -380,11 +380,15 @@ The packages that call Fortran, with the binaries that show it:
 
 ``` r
 
-fortran_jlls <- setdiff(jlls$name[jlls$fortran], "CompilerSupportLibraries_jll")
-via <- vapply(callers$deps[callers$fortran], function(d) {
-  paste(intersect(d, fortran_jlls), collapse = ", ")
-}, "")
-head(data.frame(package = callers$name[callers$fortran], via), 20)
+shown_by <- function(flag, rows, also = character(), n = 20) {
+  tagged <- c(setdiff(jlls$name[flag], "CompilerSupportLibraries_jll"), also)
+  via <- vapply(callers$deps[rows], function(d) {
+    paste(intersect(d, tagged), collapse = ", ")
+  }, "")
+  keep <- via != ""
+  head(data.frame(package = callers$name[rows][keep], via = via[keep]), n)
+}
+shown_by(jlls$fortran, callers$fortran)
 #>                package                           via
 #> 1       FormationTemps                      HDF5_jll
 #> 2          TDEPWrapper                      TDEP_jll
@@ -406,6 +410,68 @@ head(data.frame(package = callers$name[callers$fortran], via), 20)
 #> 18       QRupdatesFast               QRupdate_ng_jll
 #> 19            PinCFlow           HDF5_jll, MPICH_jll
 #> 20              MadNLP MUMPS_seq_jll, OpenBLAS32_jll
+```
+
+The packages that call C++, through a tagged binary or through
+`CxxWrap`:
+
+``` r
+
+shown_by(jlls$cxx, callers$cxx, also = "CxxWrap")
+#>          package                                                via
+#> 1        XGBoost                       XGBoost_GPU_jll, XGBoost_jll
+#> 2  ClangCompiler                                     libclangex_jll
+#> 3         OpenCL                                    SPIRV_Tools_jll
+#> 4      JuliaChem                                            CxxWrap
+#> 5         Algoim                                            CxxWrap
+#> 6      cuNumeric cunumeric_jl_wrapper_jll, cupynumeric_jll, CxxWrap
+#> 7          Gecko                                 CxxWrap, gecko_jll
+#> 8         Legate         CxxWrap, legate_jl_wrapper_jll, legate_jll
+#> 9    LEMONGraphs                                            CxxWrap
+#> 10          CGAL                                            CxxWrap
+#> 11        XRootD                                            CxxWrap
+#> 12          ROOT                                            CxxWrap
+#> 13        JSBSim                                            CxxWrap
+#> 14       Whisper                                    whisper_cpp_jll
+#> 15      QWTWPlot                       marble_jll, Qt_jll, qwtw_jll
+#> 16          Xyce                                            CxxWrap
+#> 17        AMDGPU                            AMDGPU_LLVM_Backend_jll
+#> 18            GR                             GR_jll, Qt6Wayland_jll
+#> 19    FastNoise2                                     FastNoise2_jll
+#> 20           QML                            CxxWrap, Qt6Wayland_jll
+```
+
+No tag says C. The closest the TOML comes is the packages whose binaries
+carry neither tag, Xsum among them. Most of them are C, but not all:
+`goaws_jll` is Go.
+
+``` r
+
+neither <- !callers$fortran & !callers$cxx
+shown_by(!jlls$fortran & !jlls$cxx, neither)
+#>                  package                           via
+#> 1               LevelDB2                   LevelDB_jll
+#> 2                 LibSSH Kerberos_krb5_jll, libssh_jll
+#> 3                  GoAWS                     goaws_jll
+#> 4               cuTENSOR                  CUTENSOR_jll
+#> 5                  SpaSM                     Spasm_jll
+#> 6  LatticeDiracOperators                  AlgRemez_jll
+#> 7                  NOMAD                     NOMAD_jll
+#> 8                  cuDNN                     CUDNN_jll
+#> 9                WGPUgfx                      GLFW_jll
+#> 10              ImPlot3D                 CImPlot3D_jll
+#> 11                   VSL                       MKL_jll
+#> 12                GitOut                       Git_jll
+#> 13                Blosc2                    Blosc2_jll
+#> 14                LibIIO                    libiio_jll
+#> 15        FastTransforms            FastTransforms_jll
+#> 16                Kissat                    Kissat_jll
+#> 17             ViennaRNA                 ViennaRNA_jll
+#> 18             NomnomlJS                   Librsvg_jll
+#> 19                Hygese                   HGSCVRP_jll
+#> 20                    Z3                        z3_jll
+"Xsum" %in% callers$name[neither]
+#> [1] TRUE
 ```
 
 The tags show what a binary *needs*, which is a lower bound. Much C++

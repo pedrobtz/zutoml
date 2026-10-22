@@ -1,11 +1,9 @@
 Package: zutoml
 Title: Read and Write 'TOML' Documents
 Version: 0.1.0
-Authors@R: c(
+Authors@R: 
     person("Pedro", "Baltazar", , "pedrobtz@gmail.com",
-           role = c("aut", "cre", "cph")),
-    person("TOML authors", role = "cph",
-           comment = "the 'toml-test' suite in tests/testthat/toml-test"))
+           role = c("aut", "cre", "cph"))
 Description: Parses 'TOML' (Tom's Obvious Minimal Language) documents,
     versions 1.0.0 and 1.1.0 <https://toml.io/en/v1.1.0>, into ordinary R
     values, and writes R values as 'TOML'. Every 'TOML' type maps to one R
@@ -16,6 +14,7 @@ Description: Parses 'TOML' (Tom's Obvious Minimal Language) documents,
     conformance suite <https://github.com/toml-lang/toml-test>. The parser
     and writer are written in C, with no system library required.
 License: MIT + file LICENSE
+Copyright: See inst/COPYRIGHTS
 URL: https://github.com/pedrobtz/zutoml,
     https://pedrobtz.github.io/zutoml/
 BugReports: https://github.com/pedrobtz/zutoml/issues

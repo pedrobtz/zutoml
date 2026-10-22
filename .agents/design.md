@@ -514,6 +514,16 @@ Recorded at Stage 7 (2026-10-08; R 4.6.1, macOS arm64; medians of `bench::mark()
 
 The emit benchmark uses the value parsed with `datetimes = "keep"`, since `zuyaml` writes no `Date` or `POSIXct`.
 
+`data_frame = TRUE` is linear in the cells: each row is flattened, matched to the columns and typed once, and each column filled by one assignment (#29). Re-measured on 2026-10-22 (same machine; the parse and emit ratios were unchanged at 0.39 and 1.17):
+
+| rows × columns | dense (every key in every row) | sparse (one key per row) |
+|---|---|---|
+| 200 × 200 | 27.6 ms | 2.9 ms |
+| 400 × 400 | 114.4 ms | 6.0 ms |
+| 800 × 800 | 425.5 ms | 13.3 ms |
+
+Before the rewrite, 400 × 400 dense took 1.2 s.
+
 ---
 
 ## 17. Decisions

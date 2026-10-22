@@ -6,7 +6,10 @@
 # * https://r-pkgs.org/testing-design.html#sec-tests-files-overview
 # * https://testthat.r-lib.org/articles/special-files.html
 
-library(testthat)
-library(zutoml)
+# testthat is in Suggests: CRAN's NOSUGGESTS flavour checks without it.
+if (requireNamespace("testthat", quietly = TRUE)) {
+  library(testthat)
+  library(zutoml)
 
-test_check("zutoml")
+  test_check("zutoml")
+}

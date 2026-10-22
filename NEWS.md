@@ -2,8 +2,8 @@
 
 * Initial CRAN submission.
 
-* `toml_read()` reads a TOML document from a file, URL or connection, never
-  holding more than `max_size + 1` bytes.
+* `toml_read()` reads a TOML document from a file, URL or connection, reading
+  at most `max_size + 1` bytes, so an endless source fails at the limit.
   A URL or file that cannot be opened is a `zutoml_io_error` naming the
   cause (`HTTP status was '404 Not Found'`), with no stray warning.
 * `toml_parse()` reads a TOML document into ordinary R values: tables as
@@ -13,7 +13,10 @@
   frames.
 * `toml_emit()` and `toml_write()` write a named list as TOML: deterministic
   text, tables as `[headers]`, lists of tables and data frames as arrays of
-  tables, and errors that name the key path of the value at fault.
+  tables, and errors that name the key path of the value at fault. A value
+  that breaks its class's invariants, such as a data frame whose columns
+  are shorter than its rows or an infinite date, is refused, so the text
+  written is always valid TOML.
 * `toml_parse(select = "tool.poetry")`, and so `toml_read()`, returns only
   the value at a path, building no R values for the rest of the document; a
   path the document does not have raises `zutoml_missing_key`.

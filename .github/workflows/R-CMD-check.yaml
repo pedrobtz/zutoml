@@ -22,3 +22,14 @@ jobs:
       # Quick on each push to a pull request, full after merge. The
       # `full-ci` label runs the full set on a pull request before merging.
       profile: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') && 'quick' || 'full' }}
+      # The shared default has no R-devel runner; this row checks CRAN's
+      # Windows R-devel flavour. Like nosuggests and nold, full profile only.
+      runners: >-
+        [{"os": "macos-latest", "r": "release"},
+         {"os": "windows-latest", "r": "release"},
+         {"os": "windows-latest", "r": "devel"},
+         {"os": "ubuntu-latest", "r": "release"},
+         {"os": "ubuntu-latest", "r": "oldrel-1"}]
+      # CRAN's NOSUGGESTS and NOLD flavours, which check every package.
+      nosuggests: true
+      nold: true

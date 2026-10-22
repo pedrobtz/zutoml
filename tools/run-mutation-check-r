@@ -17,6 +17,10 @@ nul_in_string|cat(tryCatch({ zutoml::toml_parse("a = \"\\u0000\""); "ok" }, erro
 big_integer|cat(tryCatch({ zutoml::toml_parse("a = 9007199254740993", big_integers = "error"); "ok" }, error = function(e) class(e)[1]))|zutoml_unrepresentable
 float_overflow|cat(tryCatch({ zutoml::toml_parse("a = 1e400"); "ok" }, error = function(e) class(e)[1]))|zutoml_unrepresentable
 emit_max_depth|cat(tryCatch({ zutoml::toml_emit(list(a = list(b = list(c = 1))), max_depth = 2); "ok" }, error = function(e) class(e)[1]))|zutoml_depth_limit
+emit_df_names|cat(tryCatch({ zutoml::toml_emit(list(x = structure(list(1L), class = "data.frame", row.names = 1L))); "ok" }, error = function(e) class(e)[1]))|zutoml_invalid_argument
+emit_df_shape|cat(tryCatch({ zutoml::toml_emit(list(x = structure(list(a = list(1L)), class = "data.frame", row.names = 1:2))); "ok" }, error = function(e) class(e)[1]))|zutoml_invalid_argument
+emit_wallclock|cat(tryCatch({ zutoml::toml_emit(list(x = structure("not a date", class = "ztm_wallclock"))); "ok" }, error = function(e) class(e)[1]))|zutoml_invalid_argument
+emit_time_finite|cat(tryCatch({ zutoml::toml_emit(list(x = structure(Inf, class = "Date"))); "ok" }, error = function(e) grepl("not finite", conditionMessage(e))))|TRUE
 '
 
 grep -ho 'GUARD: [a-z0-9_]*' $R_SRC | sed 's/GUARD: //' | sort > "$WORK/markers"

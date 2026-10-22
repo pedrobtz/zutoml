@@ -20,10 +20,5 @@ Authors:
   \item Pedro Baltazar \email{pedrobtz@gmail.com} [copyright holder]
 }
 
-Other contributors:
-\itemize{
-  \item TOML authors (the 'toml-test' suite in tests/testthat/toml-test) [copyright holder]
-}
-
 }
 \keyword{package}

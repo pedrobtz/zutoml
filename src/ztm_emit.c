@@ -147,6 +147,29 @@ static R_xlen_t df_nrow(SEXP df)
     return XLENGTH(Rf_getAttrib(df, R_RowNamesSymbol));
 }
 
+static int check_names(emitter *e, SEXP x);
+
+/* R does not enforce a data frame's shape, so the row loops index nothing
+ * until it is checked: a name per column, and every column a vector with a
+ * cell per row. */
+static int check_df(emitter *e, SEXP df)
+{
+    R_xlen_t nrow = df_nrow(df);
+    SEXP names = Rf_getAttrib(df, R_NamesSymbol);
+    if (TYPEOF(names) != STRSXP || XLENGTH(names) != XLENGTH(df)) /* GUARD: emit_df_names */
+        return fail(e, ZTM_EMIT_INVALID, "a data frame without a name for every column");
+    if (!check_names(e, df))
+        return 0;
+    for (R_xlen_t j = 0; j < XLENGTH(df); j++) {
+        SEXP col = VECTOR_ELT(df, j);
+        int vector = Rf_isVectorAtomic(col) || TYPEOF(col) == VECSXP;
+        if (!vector || XLENGTH(col) != nrow) /* GUARD: emit_df_shape */
+            return fail(e, ZTM_EMIT_INVALID,
+                        "a data frame whose columns are not vectors of one cell per row");
+    }
+    return 1;
+}
+
 /* A list zutoml knows how to write: no class, or only AsIs. A list with
  * another class (POSIXlt, lm, ...) is an object, not a table, and has no
  * TOML form zutoml can be sure of. Data frames are handled on their own. */
@@ -188,7 +211,17 @@ static int is_na_elt(SEXP x, R_xlen_t i)
 {
     switch (TYPEOF(x)) {
     case LGLSXP: return LOGICAL(x)[i] == NA_LOGICAL;
-    case INTSXP: return INTEGER(x)[i] == NA_INTEGER;
+    case INTSXP:
+        if (INTEGER(x)[i] == NA_INTEGER)
+            return 1;
+        /* A factor's NA level (factor(x, exclude = NULL)) is NA too. */
+        if (has_class(x, "factor")) {
+            SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+            int code = INTEGER(x)[i];
+            return TYPEOF(levels) == STRSXP && code >= 1 && code <= XLENGTH(levels) &&
+                   STRING_ELT(levels, code - 1) == NA_STRING;
+        }
+        return 0;
     case REALSXP:
         /* NA_real_ always; NaN too for the classes whose NA it is. */
         return ISNA(REAL(x)[i]) ||
@@ -519,10 +552,33 @@ static int put_bigint(emitter *e, SEXP ch)
     return 1;
 }
 
+/* A local date-time from R/emit.R's wall-clock text, written only when it is
+ * exactly what zufast writes for a local date-time: anything else (a forged
+ * ztm_wallclock, or R's text for an infinite time) would not read back. */
+static int put_wallclock(emitter *e, SEXP ch)
+{
+    const char *s = CHAR(ch);
+    size_t n = strlen(s);
+    zuf_datetime dt;
+    zuf_result r = zuf_parse_datetime(s, s + n, &dt);
+    char tmp[64];
+    int canonical = r.status == ZUF_OK && r.ptr == s + n && dt.has_time && !dt.has_offset &&
+                    zuf_format_datetime(tmp, sizeof tmp, &dt) == n && memcmp(tmp, s, n) == 0;
+    if (!canonical) /* GUARD: emit_wallclock */
+        return fail(e, ZTM_EMIT_INVALID,
+                    "a date-time that is not finite or outside the years 0000 to 9999");
+    put(e, s, n);
+    return 1;
+}
+
 /* A date, date-time or local time, whatever the vector's storage: R makes
- * integer-backed Dates (as.Date() of an integer) as readily as double ones. */
+ * integer-backed Dates (as.Date() of an integer) as readily as double ones.
+ * NaN is NA for these classes and never reaches here; infinities stop here,
+ * before any conversion to an integer type. */
 static int put_time_value(emitter *e, SEXP x, double v)
 {
+    if (!isfinite(v)) /* GUARD: emit_time_finite */
+        return fail(e, ZTM_EMIT_INVALID, "a date, date-time or time that is not finite");
     if (has_class(x, "POSIXct"))
         return put_datetime_utc(e, v);
     if (has_class(x, "Date"))
@@ -559,10 +615,8 @@ static int put_scalar(emitter *e, SEXP x, R_xlen_t i, int ml_ok)
     case STRSXP:
         if (has_class(x, "toml_bigint"))
             return put_bigint(e, STRING_ELT(x, i));
-        if (has_class(x, "ztm_wallclock")) {
-            puts_(e, CHAR(STRING_ELT(x, i)));
-            return 1;
-        }
+        if (has_class(x, "ztm_wallclock"))
+            return put_wallclock(e, STRING_ELT(x, i));
         return put_string(e, STRING_ELT(x, i), ml_ok,
                           has_class(x, "toml_literal") ? MARK_LITERAL
                           : has_class(x, "toml_multiline") ? MARK_MULTILINE : MARK_NONE);
@@ -765,6 +819,8 @@ static int put_value(emitter *e, SEXP x, int depth, int ml_ok)
     }
     if (TYPEOF(x) == VECSXP) {
         if (is_df(x)) {
+            if (!check_df(e, x))
+                return 0;
             putc_(e, '[');
             R_xlen_t nrow = df_nrow(x);
             for (R_xlen_t r = 0; r < nrow; r++) {
@@ -941,7 +997,7 @@ static int put_table_body_with(emitter *e, SEXP x, SEXP names, int depth, header
         header_push(h, STRING_ELT(names, i));
         if (is_df(v)) {
             /* An array of tables, one per row: each row's cells are values. */
-            if (!check_depth(e, depth + 1))
+            if (!check_depth(e, depth + 1) || !check_df(e, v))
                 return 0;
             SEXP cn = PROTECT(Rf_getAttrib(v, R_NamesSymbol));
             int ok = put_df_aot(e, v, cn, depth, h);

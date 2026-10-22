@@ -2,7 +2,7 @@
 
 Companion to [design.md](design.md). Section references (§) point there.
 
-**Status:** adopted 2026-10-08 from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md). Nothing below is implemented; the repository is the `usethis` skeleton (created 2026-10-08 with `create-pkg.sh -c`) plus these documents.
+**Status:** adopted 2026-10-08 from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md). Every stage is done; 0.1.0 is ready for CRAN (2026-10-22). Each stage's **Status:** line says when and by which pull request.
 
 ## Sequencing principles
 
@@ -313,7 +313,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 7c — Reading part of a document · S
 
-**Status:** in review (branch `stage-7c-select`).
+**Status:** done 2026-10-08 (#25, closes #24).
 
 **Goal:** read one part of a document (`tool.poetry` of a `pyproject.toml`) without building R values for the rest (design D20).
 
@@ -334,7 +334,7 @@ CI stands in for win-builder and the macOS builder (the template's "Releasing to
 
 ## Stage 8 — Release 0.1.0 · S
 
-**Status:** ready, except for what waits on zufast (branch `stage-8-release`). Done: `Version: 0.1.0` and its `NEWS.md` heading; the acceptance criteria table below, every criterion but #1 met; the `cran-extrachecks` and `review-cran-submission` reviews, every finding resolved (Description now names TOML 1.1.0, the writer and the specification; README gives `install.packages()`; the package help page is public; `cran-comments.md` notes method references and the zufast dependency); `R CMD check --as-cran --run-donttest` 0/0/0 bar the "New submission" note. **Left, when zufast is on CRAN:** remove `Remotes:` (and the rchk `github-packages` input in `native-checks.yaml`), rebuild and check against zufast's CRAN tarball (R10.3), submit; after acceptance, tag `v0.1.0`, publish the release, bump to `0.1.0.9000`, close #1 and #10.
+**Status:** done 2026-10-08 (#23, closes #10); the steps that waited on zufast done 2026-10-22, after zufast 0.1.0 reached CRAN on 2026-10-21 and the review in #29 was fixed. Done: `Version: 0.1.0` and its `NEWS.md` heading; the acceptance criteria table below, every criterion but #1 met; the `cran-extrachecks` and `review-cran-submission` reviews, every finding resolved (Description now names TOML 1.1.0, the writer and the specification; README gives `install.packages()`; the package help page is public; `cran-comments.md` notes method references and the zufast dependency); `R CMD check --as-cran --run-donttest` 0/0/0 bar the "New submission" note. Done 2026-10-22: `Remotes:` and the rchk `github-packages` input in `native-checks.yaml` removed, checked against zufast's CRAN release (R10.3). **Left:** submit; after acceptance, tag `v0.1.0`, publish the release, bump to `0.1.0.9000`, close #1 (#10 closed with #23).
 
 **Do**
 

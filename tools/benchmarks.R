@@ -44,4 +44,39 @@ show <- function(b, what) {
 }
 show(parse, "parse 1 MB")
 show(emit, "emit the parsed value")
+
+# data_frame = TRUE must scale with the cells: dense rows that share every
+# key, and sparse rows that share none. Four times the cells should take
+# about four times as long.
+dense <- function(n) {
+  rows <- vapply(
+    seq_len(n),
+    function(i) {
+      paste0("{", paste0("c", seq_len(n), " = ", i, collapse = ", "), "}")
+    },
+    ""
+  )
+  toml_parse(paste0("t = [", paste(rows, collapse = ", "), "]"))
+}
+sparse <- function(n) {
+  toml_parse(paste0(
+    "t = [",
+    paste0("{k", seq_len(n), " = 1}", collapse = ", "),
+    "]"
+  ))
+}
+cat("\ndata_frame = TRUE (median, ms):\n")
+for (shape in c("dense", "sparse")) {
+  for (n in c(200L, 400L, 800L)) {
+    x <- get(shape)(n)
+    b <- bench::mark(ztm_data_frames(x), min_iterations = 5)
+    cat(sprintf(
+      "  %-6s %3d x %3d %8.1f\n",
+      shape,
+      n,
+      n,
+      as.numeric(b$median) * 1000
+    ))
+  }
+}
 cat("\n", R.version.string, ", ", Sys.info()[["machine"]], "\n", sep = "")

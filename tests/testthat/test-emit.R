@@ -189,6 +189,158 @@ test_that("7.3 values with no TOML form are zutoml_unsupported_type, with a path
   }
 })
 
+test_that("a data frame that breaks its shape is refused before a row is read", {
+  frame <- function(cols, nrow) {
+    structure(cols, class = "data.frame", row.names = .set_row_names(nrow))
+  }
+  bad <- list(
+    short_atomic = frame(list(a = 1L), 2L),
+    short_list = frame(list(a = list(1L)), 3L),
+    long_atomic = frame(list(a = 1:3), 2L),
+    null_column = frame(list(a = NULL), 1L),
+    no_names = structure(
+      list(1L),
+      class = "data.frame",
+      row.names = .set_row_names(1L)
+    ),
+    na_name = frame(stats::setNames(list(1L, 2L), c("a", NA)), 1L),
+    duplicated = frame(list(a = 1L, a = 2L), 1L)
+  )
+  for (df in bad) {
+    # As an array of tables, as a value, and inside an array.
+    expect_zutoml_error(
+      toml_emit(list(x = df)),
+      "zutoml_invalid_argument",
+      path = "x"
+    )
+    expect_zutoml_error(
+      toml_emit(list(x = df), width = 0L, inline = 5L),
+      "zutoml_invalid_argument",
+      path = "x"
+    )
+    expect_zutoml_error(
+      toml_emit(list(x = list(1L, df))),
+      "zutoml_invalid_argument",
+      path = "x[2]"
+    )
+  }
+})
+
+test_that("dates and times that are not finite are refused, with their path", {
+  withr::local_timezone("Europe/Lisbon")
+  for (v in list(
+    structure(Inf, class = c("POSIXct", "POSIXt"), tzone = "UTC"),
+    structure(-Inf, class = c("POSIXct", "POSIXt"), tzone = ""),
+    structure(Inf, class = "Date"),
+    structure(-Inf, class = "difftime", units = "secs")
+  )) {
+    expect_zutoml_error(
+      toml_emit(list(t = list(x = v))),
+      "zutoml_invalid_argument",
+      path = "t.x"
+    )
+    expect_zutoml_error(
+      toml_emit(list(x = c(v[0], 0, v))),
+      "zutoml_invalid_argument",
+      path = "x[2]"
+    )
+  }
+})
+
+test_that("a local date-time is written only as canonical text", {
+  withr::local_timezone("Europe/Lisbon")
+  # Years TOML cannot write, and text that did not come from R/emit.R.
+  for (v in list(
+    structure(253402300800, class = c("POSIXct", "POSIXt"), tzone = ""),
+    structure(-62167219200 - 86400, class = c("POSIXct", "POSIXt"), tzone = ""),
+    structure("not a date", class = "ztm_wallclock"),
+    structure("2024-02-30T00:00:00", class = "ztm_wallclock"),
+    structure("2024-01-01T00:00:00Z", class = "ztm_wallclock"),
+    structure("2024-01-01 00:00:00", class = "ztm_wallclock")
+  )) {
+    expect_zutoml_error(
+      toml_emit(list(x = v)),
+      "zutoml_invalid_argument",
+      path = "x"
+    )
+  }
+})
+
+test_that("a local date-time rounds to the microsecond across the minute", {
+  withr::local_timezone("Europe/Lisbon")
+  base <- as.numeric(as.POSIXct("2024-12-31 23:59:59", tz = ""))
+  x <- .POSIXct(base + c(0.9999996, 0.0000004, 0.25), tz = "")
+  expect_toml(
+    list(a = x),
+    paste0(
+      "a = [2025-01-01T00:00:00, 2024-12-31T23:59:59, ",
+      "2024-12-31T23:59:59.250]\n"
+    )
+  )
+})
+
+test_that("a fractional Date is written as its day", {
+  expect_toml(list(a = structure(1.5, class = "Date")), "a = 1970-01-02\n")
+  expect_toml(list(a = structure(-0.5, class = "Date")), "a = 1969-12-31\n")
+})
+
+test_that("a factor's NA level is NA, not the string \"NA\"", {
+  f <- factor(c("a", NA), exclude = NULL)
+  expect_zutoml_error(
+    toml_emit(list(x = f)),
+    "zutoml_na_error",
+    path = "x[2]"
+  )
+  expect_identical(
+    suppressWarnings(toml_emit(list(x = f), na = "omit")),
+    "x = [\"a\"]\n"
+  )
+  expect_toml(list(x = f[2], y = 1), "y = 1\n", na = "omit")
+})
+
+test_that("every text toml_emit() returns is valid TOML 1.0.0", {
+  withr::local_timezone("Europe/Lisbon")
+  frame <- function(cols, nrow) {
+    structure(cols, class = "data.frame", row.names = .set_row_names(nrow))
+  }
+  hostile <- list(
+    frame(list(a = 1L), 2L),
+    frame(list(a = list()), 1L),
+    frame(list(), 3L),
+    data.frame(a = I(list(1:2, NULL)), b = c(NA, "x")),
+    structure(
+      c(Inf, -Inf, NaN, NA),
+      class = c("POSIXct", "POSIXt"),
+      tzone = ""
+    ),
+    structure(c(Inf, 1.5), class = "Date"),
+    structure(c(86399.9999996, 0), class = "difftime", units = "secs"),
+    structure(c("x", "y\n"), class = "ztm_wallclock"),
+    structure(c("1", "99999999999999999999"), class = "toml_bigint"),
+    factor(c("a", NA, "b"), exclude = NULL),
+    structure(3L, class = "factor", levels = c("a", "b")),
+    structure(c(1, 2), class = c("toml_literal", "toml_multiline")),
+    structure(list(a = 1), class = "toml_inline"),
+    I(list()),
+    list(list(a = 1), list()),
+    -0,
+    c(.Machine$double.xmax, 2^63, -2^63)
+  )
+  for (v in hostile) {
+    for (na in c("error", "omit")) {
+      for (doc in list(list(x = v), list(t = list(x = v)), list(a = list(v)))) {
+        text <- tryCatch(
+          suppressWarnings(toml_emit(doc, na = na, inline = 3L, width = 10L)),
+          zutoml_error = function(e) NULL
+        )
+        if (!is.null(text)) {
+          expect_true(toml_validate(text, version = "1.0.0"), label = text)
+        }
+      }
+    }
+  }
+})
+
 test_that("NA and NULL: refused, or omitted on request", {
   for (v in list(NA, NA_character_, NA_integer_, NA_real_, NULL, as.Date(NA))) {
     err <- tryCatch(toml_emit(list(a = 1L, b = v)), error = identity)

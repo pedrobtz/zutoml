@@ -13,7 +13,7 @@ It is a member of the `zu*` family (sibling checkouts in `../`). `zuyaml` is the
 
 ## Current state
 
-**2026-10-08: Stages 0–7b merged (#11, #14–#20, #22); Stage 7c (`select =`) in review on `stage-7c-select`; Stage 8 (release 0.1.0) prepared on `stage-8-release`: `Version: 0.1.0`, the CRAN reviews done, the acceptance table filled. Only what waits on zufast's CRAN release is left (roadmap Stage 8).** `toml_validate()`, `toml_parse()` (with `positions =` and `select =`), `toml_read()`, `toml_emit()`, `toml_write()`, the markers `toml_inline()`, `toml_literal()` and `toml_multiline()`, `toml_bigint()` and `zutoml_info()` are exported, with a vignette; every toml-test case of TOML 1.0.0 and 1.1.0 passes in both directions, and every valid value round-trips through the emitter, whose text the reference decoder and Python's `tomllib` accept (D17: 1.1.0 is read by default; the emitter writes 1.0.0). `toml_validate()`, `toml_parse()` and `toml_bigint()` are exported; every toml-test case of TOML 1.0.0 and 1.1.0 passes in both directions, valid documents parsing to their expected values (D17: 1.1.0 is the default). The check phase is `src/ztm_lex.c`, `src/ztm_value.c` and `src/ztm_parse.c`, R-free; its output, the node tree `ztm_doc`, is walked by `src/ztm_build.c` (R values, the lattice). Local date-times reach the session's zone in `R/parse.R`; data frames are built in `R/data-frame.R`. The emitter is `src/ztm_emit.c`, with `R/emit.R` turning local `POSIXct` into wall-clock text first. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-mutation-check` (40 check-phase guards), `tools/run-mutation-check-r` (4 R-side guards), `tools/check-no-network`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: when zufast is on CRAN, finish Stage 8 (remove `Remotes:`, check against its tarball, submit).
+**2026-10-22: every stage of the roadmap is done, and 0.1.0 is ready for CRAN.** zufast 0.1.0 reached CRAN on 2026-10-21, so `Remotes:` is gone, and the review in #29 is fixed: the emitter checks the invariants R does not enforce (data frame shape, finite dates and times, canonical wall-clock text, a factor's NA level) and everything it returns is valid TOML 1.0.0; `data_frame = TRUE` is linear in the cells. `toml_validate()`, `toml_parse()` (with `positions =` and `select =`), `toml_read()`, `toml_emit()`, `toml_write()`, the markers `toml_inline()`, `toml_literal()` and `toml_multiline()`, `toml_bigint()` and `zutoml_info()` are exported, with a vignette; every toml-test case of TOML 1.0.0 and 1.1.0 passes in both directions (D17: 1.1.0 is read by default; the emitter writes 1.0.0). The check phase is `src/ztm_lex.c`, `src/ztm_value.c` and `src/ztm_parse.c`, R-free; its output, the node tree `ztm_doc`, is walked by `src/ztm_build.c` (R values, the lattice). Local date-times reach the session's zone in `R/parse.R`; data frames are built in `R/data-frame.R`. The emitter is `src/ztm_emit.c`, with `R/emit.R` turning local `POSIXct` into wall-clock text first. Gates: `tools/run-conformance`, `tools/run-lint`, `tools/check-symbols`, `tools/run-mutation-check` (40 check-phase guards), `tools/run-mutation-check-r` (8 R-side guards), `tools/check-no-network`, `tools/run-fuzz` (needs a clang with libFuzzer; on macOS, Homebrew's: `FUZZ_CC=/opt/homebrew/opt/llvm/bin/clang`), in `conformance.yaml`, `hardening.yaml` and `native-checks.yaml`. Next: submit 0.1.0 (pedrobtz/packages#100); after acceptance, the steps under "Releasing to CRAN".
 
 Update this paragraph at the end of every stage: what exists, what is next, and the date.
 
@@ -30,9 +30,9 @@ Progress toward the next version is tracked as GitHub sub-issues, so the parent 
 
 ## Versioning
 
-The package developed at `0.0.0.9000` and is at `0.1.0`, prepared for its first CRAN release (Stage 8). Bump to `0.1.0.9000` only after CRAN accepts it. Bump to `0.1.0.9000` only after CRAN accepts it, never before.
+The package developed at `0.0.0.9000` and is at `0.1.0`, prepared for its first CRAN release (Stage 8). Bump to `0.1.0.9000` only after CRAN accepts it, never before.
 
-Until the first release the R API may change freely. zutoml depends on a sibling before CRAN does: `LinkingTo: zufast (>= 0.1.0)`, resolved from `Remotes: pedrobtz/zufast@main` during development. **zufast must be on CRAN before zutoml is submitted**, the `Remotes:` line goes at Stage 8, and the release build is checked against zufast's CRAN tarball, because header-only is source-compatible, not ABI-compatible. No package depends on zutoml.
+Until the first release the R API may change freely. zutoml depends on one sibling, `LinkingTo: zufast (>= 0.1.0)`, from CRAN since 2026-10-21. A release build is checked against zufast's CRAN tarball, not a newer checkout, because header-only is source-compatible, not ABI-compatible. No package depends on zutoml.
 
 ## Commands
 
@@ -48,7 +48,7 @@ _R_CHECK_SYSTEM_CLOCK_=0 Rscript -e 'devtools::check(cran = TRUE)'
 air format .                                     # format R sources
 ```
 
-zufast is not on CRAN: install it from the sibling checkout (`R CMD INSTALL ../zufast`) or `pak::pak("pedrobtz/zufast")`. roxygen2 must be 8.1.0 or newer (`Config/roxygen2/version`); an older one rewrites `man/`.
+Install zufast from CRAN, or from the sibling checkout (`R CMD INSTALL ../zufast`) to try an unreleased change. roxygen2 must be 8.1.0 or newer (`Config/roxygen2/version`); an older one rewrites `man/`.
 
 Gate scripts, each arriving at the roadmap stage named and run from the package root:
 

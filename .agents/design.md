@@ -1,6 +1,6 @@
 # zutoml — Design
 
-**Status:** Draft, 2026-10-08. Adopted from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md) (2026-10-07) as the package's own specification. Nothing here is implemented: the repository is the `usethis` skeleton plus these documents. Every statement here is a decision; things not yet decided live in §18 and nowhere else. Amend this file in the same commit as the code that changes it. [roadmap.md](roadmap.md) sequences the work; its section references (§) point here.
+**Status:** Draft, 2026-10-08. Adopted from [RFC 0004](https://github.com/pedrobtz/packages/blob/main/rfcs/0004-zutoml-toml-documents.md) (2026-10-07) as the package's own specification. Implemented in full by 0.1.0 (Stages 0–8 of the roadmap, 2026-10-08); amended since by the review in #29 (2026-10-22). Every statement here is a decision; things not yet decided live in §18 and nowhere else. Amend this file in the same commit as the code that changes it. [roadmap.md](roadmap.md) sequences the work; its section references (§) point here.
 **Package:** `zutoml`
 **One line:** TOML 1.0 documents parsed into ordinary R values and emitted from them, by a C99 parser and emitter of the package's own over `zufast`'s scalars, with `toml-test` as the conformance gate in both directions.
 
@@ -287,8 +287,10 @@ Notes, by row:
 - **Strings.** A basic string escapes `"`, `\` and control characters; a string containing a newline is a multi-line basic string. With `strings = "literal"`, a string that holds no `'` and no control character is a literal string, which needs no escapes; others stay basic. A string that is not valid UTF-8 after `enc2utf8()` is `zutoml_invalid_argument`.
 - **Whole doubles.** `zucbor`'s rule, for `zucbor`'s reason: R has no integer literal, so `list(port = 8080)` is a double and a TOML reader expects `port = 8080`, not `8080.0`. `-0.0` stays a float.
 - **Floats.** `zuf_format_f64()`, which prints the shortest digits that read back exactly, with `.0` appended when the result has no point or exponent, since TOML requires one. `NaN` is `nan`, infinities `inf` and `-inf`.
-- **`POSIXct`.** Written as RFC 3339 with `T`, `Z` for UTC, microseconds when non-zero. A `tzone` other than UTC is converted to UTC; the zone name is not representable (§7.4, §18 Q3).
-- **`NA`** of any type is `zutoml_na_error` unless `na = "omit"`, which drops the key, or the element from an array with a warning. TOML has no null.
+- **`POSIXct`.** Written as RFC 3339 with `T`, `Z` for UTC, microseconds when non-zero. A `tzone` other than UTC is converted to UTC; the zone name is not representable (§7.4, §18 Q3). A local date-time is rounded to the microsecond before it is split into fields, as a UTC one is, so the carry moves the minute and the date: `23:59:59.9999996` is the next midnight, never `23:59:60`. It reaches C as text (`ztm_wallclock`), which the emitter writes only when it is exactly what `zuf_format_datetime()` writes for a local date-time.
+- **`Date`.** A fractional `Date` is written as its day, as `format()` writes it (§7.4).
+- **Dates and times that are not finite.** An infinite `POSIXct`, `Date` or `difftime` is `zutoml_invalid_argument`, with its `path`; `NaN` is `NA` for these classes.
+- **`NA`** of any type is `zutoml_na_error` unless `na = "omit"`, which drops the key, or the element from an array with a warning. TOML has no null. A factor element whose level is `NA_character_` (`factor(x, exclude = NULL)`) is `NA` too.
 
 ### 7.2 Lists
 
@@ -321,6 +323,8 @@ The emitter writes, in order: every scalar and array value of the top table; the
 
 `zutoml_unsupported_type`: complex numbers, raw vectors (TOML has no bytes; encode them as a string first), functions, environments, external pointers, S4 objects, `POSIXlt`, and matrices and arrays with `dim` (TOML arrays are nested, and a `dim` is a policy the caller should make explicit by converting to a list). As built at Stage 5, the rule is an allow-list: an atomic vector may carry only the classes of §7.1 (`AsIs`, `factor`, `Date`, `POSIXct`, `difftime`, `toml_bigint`), and a list only `AsIs` or `data.frame`; anything else (`integer64`, which is a double with a class; `POSIXlt`, which is a named list) is refused rather than written by its storage.
 
+R does not enforce the invariants of the classes it allows, so the emitter checks them before it reads a value, and refuses a value that breaks one with `zutoml_invalid_argument` and its `path`: a data frame without a name for every column, with duplicated names, or with a column that is not a vector of one cell per row; an infinite date or time; wall-clock text that is not canonical. Every text `toml_emit()` returns is valid TOML 1.0.0, and a test holds it to that over hostile values (§15).
+
 ### 7.4 Known lossy conversions
 
 This table is part of the contract and goes into the user documentation as well.
@@ -338,6 +342,7 @@ This table is part of the contract and goes into the user documentation as well.
 | `NA` cells of a data frame | left out of their row's table, which is what `data_frame = TRUE` reads back as `NA` |
 | `1.0` and `1` | both emit as `1` |
 | `factor` | its labels |
+| fractional `Date` | its day, as `format()` writes it |
 | `I(x)` of length one | an array of one |
 | `NA`, `NULL` | refused, or omitted on request |
 
@@ -377,7 +382,7 @@ The lexer and parser follow the ABNF in the TOML v1.0.0 specification clause by 
 
 ## 10. Input sources
 
-`toml_parse()` takes a string (length one, any encoding R knows, translated to UTF-8 first) or a raw vector of UTF-8 bytes. `toml_read()` takes a path, a URL or a connection through `zuxml`'s `zu_open_input()` in `R/zu_source.R`, copied verbatim with its origin header as `zucbor` and `zuhtml` do, reading at most `max_size + 1` bytes in 64 KiB blocks so an endless source fails with `zutoml_size_limit` one byte past the limit. The read loop is in R, not C (`zucbor` §9 says why: `R_ReadConnection()` is experimental API and costs a NOTE). A TOML document is one value; there is no sequence form.
+`toml_parse()` takes a string (length one, any encoding R knows, translated to UTF-8 first) or a raw vector of UTF-8 bytes. `toml_read()` takes a path, a URL or a connection through `zuxml`'s `zu_open_input()` in `R/zu_source.R`, copied verbatim with its origin header as `zucbor` and `zuhtml` do, reading at most `max_size + 1` bytes in 64 KiB blocks so an endless source fails with `zutoml_size_limit` one byte past the limit. The blocks are joined once at the end, so the peak memory is about twice the bytes read, never a function of the source's size. The read loop is in R, not C (`zucbor` §9 says why: `R_ReadConnection()` is experimental API and costs a NOTE). A TOML document is one value; there is no sequence form.
 
 ---
 
@@ -513,6 +518,16 @@ Recorded at Stage 7 (2026-10-08; R 4.6.1, macOS arm64; medians of `bench::mark()
 | emit the parsed value | 23.7 ms | `zuyaml`: 20.9 ms | 1.14 |
 
 The emit benchmark uses the value parsed with `datetimes = "keep"`, since `zuyaml` writes no `Date` or `POSIXct`.
+
+`data_frame = TRUE` is linear in the cells: each row is flattened, matched to the columns and typed once, and each column filled by one assignment (#29). Re-measured on 2026-10-22 (same machine; the parse and emit ratios were unchanged at 0.39 and 1.17):
+
+| rows × columns | dense (every key in every row) | sparse (one key per row) |
+|---|---|---|
+| 200 × 200 | 27.6 ms | 2.9 ms |
+| 400 × 400 | 114.4 ms | 6.0 ms |
+| 800 × 800 | 425.5 ms | 13.3 ms |
+
+Before the rewrite, 400 × 400 dense took 1.2 s.
 
 ---
 

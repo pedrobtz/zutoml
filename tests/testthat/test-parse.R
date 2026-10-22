@@ -222,6 +222,30 @@ test_that("data_frame = TRUE: arrays of tables as data frames", {
   expect_s3_class(df4$b[[1]], "data.frame")
 })
 
+test_that("data_frame = TRUE: keys in any order, empty rows, classed cells", {
+  df <- toml_parse(
+    "t = [{b = 1, a = 'x'}, {}, {a = 'y', c = 1979-05-27T07:32:00Z}]",
+    data_frame = TRUE
+  )$t
+  expect_identical(names(df), c("b", "a", "c"))
+  expect_identical(df$a, c("x", NA, "y"))
+  expect_identical(df$b, c(1L, NA, NA))
+  expect_identical(
+    df$c,
+    as.POSIXct(c(NA, NA, 296638320), tz = "UTC")
+  )
+  empty <- toml_parse("t = [{}, {}]", data_frame = TRUE)$t
+  expect_identical(dim(empty), c(2L, 0L))
+  # Rows of scalars beside rows that hold an array of tables.
+  mixed <- toml_parse(
+    "t = [{a = 1}, {a = 2, n = [{x = 1}, {x = 2}]}]",
+    data_frame = TRUE
+  )$t
+  expect_identical(mixed$a, 1:2)
+  expect_identical(mixed$n[[1]], NA)
+  expect_identical(mixed$n[[2]]$x, 1:2)
+})
+
 test_that("the data frame cell budget refuses rows that share no keys", {
   withr::local_options(zutoml.max_df_cells = 10)
   doc <- paste0("t = [", paste0("{k", 1:4, " = 1}", collapse = ", "), "]")

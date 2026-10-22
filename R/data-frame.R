@@ -21,17 +21,29 @@ ztm_data_frames <- function(x) {
   if (!is.list(x) || is.data.frame(x)) {
     return(x)
   }
-  x[] <- lapply(x, ztm_data_frames)
+  nested <- vapply(x, is.list, NA)
+  # Only a list that holds a list can change, so the rows of a long array of
+  # tables of scalars are looked at in one sweep, not one call each.
+  inner <- unlist(x[nested], recursive = FALSE, use.names = FALSE)
+  owner <- rep.int(which(nested), lengths(x[nested]))
+  deep <- unique(owner[vapply(inner, is.list, NA)])
+  x[deep] <- lapply(x[deep], ztm_data_frames)
   if (
-    is.null(names(x)) && length(x) > 0L && all(vapply(x, ztm_is_table, TRUE))
+    is.null(names(x)) &&
+      length(x) > 0L &&
+      all(nested) &&
+      all(vapply(x, ztm_is_table, TRUE))
   ) {
     return(ztm_as_data_frame(x))
   }
   x
 }
 
+# One pass over the rows: every cell is flattened once, matched to its column
+# once and typed once, so the work is linear in the cells the rows hold.
 ztm_as_data_frame <- function(rows) {
-  cols <- unique(unlist(lapply(rows, names), use.names = FALSE))
+  keys <- unlist(lapply(rows, names), use.names = FALSE)
+  cols <- unique(keys)
   n <- length(rows)
   if (as.double(n) * length(cols) > ztm_max_df_cells()) {
     stop(structure(
@@ -53,11 +65,11 @@ ztm_as_data_frame <- function(rows) {
       )
     ))
   }
-  out <- lapply(cols, function(col) {
-    ztm_column(lapply(rows, function(r) {
-      if (col %in% names(r)) r[[col]] else NULL
-    }))
-  })
+  cells <- unlist(lapply(rows, unname), recursive = FALSE, use.names = FALSE)
+  at <- rep.int(seq_len(n), lengths(rows))
+  kinds <- ztm_cell_kinds(cells)
+  by_col <- split(seq_along(keys), factor(match(keys, cols), seq_along(cols)))
+  out <- lapply(by_col, function(k) ztm_column(cells[k], kinds[k], at[k], n))
   names(out) <- cols
   structure(out, class = "data.frame", row.names = .set_row_names(n))
 }
@@ -65,9 +77,6 @@ ztm_as_data_frame <- function(rows) {
 # The lattice kind of one cell for a column: a length-one atomic value that
 # is not I()-marked (an array of one), or NA for anything else.
 ztm_cell_kind <- function(v) {
-  if (is.null(v)) {
-    return("missing")
-  }
   if (!is.atomic(v) || length(v) != 1L || inherits(v, "AsIs")) {
     return(NA_character_)
   }
@@ -96,27 +105,42 @@ ztm_cell_kind <- function(v) {
   )
 }
 
-# A column from its cells (NULL where a row has no such key): a vector when
-# the present cells share a kind, integer widening to double; else a list.
-ztm_column <- function(cells) {
-  kinds <- vapply(cells, ztm_cell_kind, "")
-  present <- kinds[kinds != "missing"]
-  if (length(present) && !anyNA(present)) {
-    u <- unique(present)
+# ztm_cell_kind() over a list of cells: the plain ones (unclassed, atomic,
+# length one) by type in one sweep, only the classed ones one at a time.
+ztm_cell_kinds <- function(cells) {
+  kinds <- vapply(cells, typeof, "")
+  single <- kinds %in%
+    c("character", "logical", "integer", "double") &
+    lengths(cells) == 1L
+  classed <- vapply(cells, is.object, NA)
+  kinds[!single] <- NA
+  kinds[single & classed] <- vapply(cells[single & classed], ztm_cell_kind, "")
+  kinds
+}
+
+# A column of n rows from the cells of the rows `at`, of kinds `kinds`: a
+# vector when the cells share a kind, integer widening to double; else a list
+# with NA for the rows that have no such key.
+ztm_column <- function(cells, kinds, at, n) {
+  if (!anyNA(kinds)) {
+    u <- unique(kinds)
     if (setequal(u, c("integer", "double"))) {
       u <- "double"
     }
     if (length(u) == 1L) {
-      first <- cells[[which(kinds != "missing")[1L]]]
-      col <- first[rep(NA_integer_, length(cells))]
+      col <- cells[[1L]][rep(NA_integer_, n)]
       if (u == "double") {
         col <- as.double(col)
       }
-      for (i in which(kinds != "missing")) {
-        col[i] <- cells[[i]]
-      }
+      # Filled unclassed, so no `[<-` method converts the cells one by one.
+      a <- attributes(col)
+      attributes(col) <- NULL
+      col[at] <- unlist(cells, use.names = FALSE)
+      attributes(col) <- a
       return(col)
     }
   }
-  lapply(cells, function(v) if (is.null(v)) NA else v)
+  col <- rep(list(NA), n)
+  col[at] <- cells
+  col
 }

@@ -16,7 +16,7 @@
 #' | `logical` | boolean |
 #' | `POSIXct` with a time zone | offset date-time, in UTC (`Z`) |
 #' | `POSIXct` with no time zone (`tzone = ""`) | local date-time |
-#' | `Date` | local date |
+#' | `Date` | local date; a fractional one as its day |
 #' | `difftime` in seconds, from 0 to a day | local time |
 #' | [toml_bigint()] | integer |
 #' | `factor` | its labels, as strings |
@@ -35,8 +35,11 @@
 #' Refused with `zutoml_unsupported_type`: complex and raw vectors,
 #' functions, environments, `POSIXlt`, matrices and arrays with `dim`, and
 #' atomic vectors of other classes. `NA` and `NULL`, which TOML has no form
-#' for, raise `zutoml_na_error` unless `na = "omit"`. Each condition
-#' carries `path`, the key path of the value at fault, as `a.b[3].c`.
+#' for, raise `zutoml_na_error` unless `na = "omit"`. A value that breaks
+#' its class's invariants raises `zutoml_invalid_argument`: a data frame
+#' without a name for every column, or with a column that is not a vector of
+#' one cell per row, and an infinite date or time. Each condition carries
+#' `path`, the key path of the value at fault, as `a.b[3].c`.
 #'
 #' @param x A named list: the document's top-level table.
 #' @param file For `toml_write()`, a path or a connection.
@@ -183,7 +186,9 @@ ztm_check_count <- function(x, arg) {
 
 # A POSIXct with no time zone is a local date-time: its wall-clock time in
 # the session's zone, which only R knows. It reaches C as canonical text of
-# class ztm_wallclock (src/ztm_emit.c writes it as it is).
+# class ztm_wallclock, which src/ztm_emit.c writes only if it is canonical:
+# an infinite time or a year outside 0000 to 9999 is refused there, with
+# its path.
 ztm_wallclocks <- function(x) {
   rapply(
     x,
@@ -193,16 +198,17 @@ ztm_wallclocks <- function(x) {
         return(v)
       }
       asis <- inherits(v, "AsIs")
-      lt <- as.POSIXlt(v)
-      year <- lt$year + 1900L
-      if (any(!is.na(year) & (year < 0 | year > 9999))) {
-        ztm_invalid_argument("x", "a date-time outside the years 0000 to 9999")
-      }
-      whole <- floor(lt$sec)
-      micro <- round((lt$sec - whole) * 1e6)
-      carry <- micro >= 1e6
+      # Rounded to the microsecond on the time itself, as the C rounds a
+      # UTC time, so that a carry moves the minute and the date as well:
+      # 23:59:59.9999996 is midnight, not 23:59:60.
+      secs <- as.double(unclass(v))
+      whole <- floor(secs)
+      micro <- floor((secs - whole) * 1e6 + 0.5)
+      carry <- !is.na(micro) & micro >= 1e6
       micro[carry] <- 0
       whole[carry] <- whole[carry] + 1
+      lt <- as.POSIXlt(.POSIXct(whole, tz = ""))
+      year <- lt$year + 1900L
       frac <- ifelse(
         micro == 0,
         "",
@@ -213,13 +219,13 @@ ztm_wallclocks <- function(x) {
         )
       )
       text <- sprintf(
-        "%04d-%02d-%02dT%02d:%02d:%02d%s",
+        "%04d-%02d-%02dT%02d:%02d:%02.0f%s",
         year,
         lt$mon + 1L,
         lt$mday,
         lt$hour,
         lt$min,
-        as.integer(whole),
+        lt$sec,
         frac
       )
       text[is.na(v)] <- NA_character_

@@ -291,11 +291,31 @@ c(fortran = sum(callers$fortran), cxx = sum(callers$cxx), neither = sum(!callers
 The packages that call Fortran, with the binaries that show it:
 
 ```{r}
-fortran_jlls <- setdiff(jlls$name[jlls$fortran], "CompilerSupportLibraries_jll")
-via <- vapply(callers$deps[callers$fortran], function(d) {
-  paste(intersect(d, fortran_jlls), collapse = ", ")
-}, "")
-head(data.frame(package = callers$name[callers$fortran], via), 20)
+shown_by <- function(flag, rows, also = character(), n = 20) {
+  tagged <- c(setdiff(jlls$name[flag], "CompilerSupportLibraries_jll"), also)
+  via <- vapply(callers$deps[rows], function(d) {
+    paste(intersect(d, tagged), collapse = ", ")
+  }, "")
+  keep <- via != ""
+  head(data.frame(package = callers$name[rows][keep], via = via[keep]), n)
+}
+shown_by(jlls$fortran, callers$fortran)
+```
+
+The packages that call C++, through a tagged binary or through `CxxWrap`:
+
+```{r}
+shown_by(jlls$cxx, callers$cxx, also = "CxxWrap")
+```
+
+No tag says C. The closest the TOML comes is the packages whose binaries
+carry neither tag, Xsum among them. Most of them are C, but not all:
+`goaws_jll` is Go.
+
+```{r}
+neither <- !callers$fortran & !callers$cxx
+shown_by(!jlls$fortran & !jlls$cxx, neither)
+"Xsum" %in% callers$name[neither]
 ```
 
 The tags show what a binary *needs*, which is a lower bound. Much C++

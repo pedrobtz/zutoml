@@ -65,7 +65,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang
       - name: Restore the corpus
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: fuzz/corpus
           key: fuzz-corpus-${{ github.run_id }}
@@ -76,7 +76,7 @@ jobs:
         run: tools/run-fuzz ${{ github.event_name == 'schedule' && 1800 || 120 }}
       - name: Save the corpus
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: fuzz/corpus
           key: fuzz-corpus-${{ github.run_id }}

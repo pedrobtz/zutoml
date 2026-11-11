@@ -14,3 +14,7 @@
 ^vignettes/articles$
 ^air\.toml$
 ^tests/testthat/toml-test$
+^\.superpowers$
+^\.worktrees$
+^CLAUDE\.md$
+^AGENTS\.md$

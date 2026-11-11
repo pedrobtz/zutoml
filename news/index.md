@@ -2,6 +2,8 @@
 
 ## zutoml 0.1.0
 
+CRAN release: 2026-11-07
+
 - Initial CRAN submission.
 
 - [`toml_read()`](https://pedrobtz.github.io/zutoml/reference/toml_read.md)

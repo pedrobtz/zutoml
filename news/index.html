@@ -39,7 +39,7 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.1.0" id="zutoml-010">zutoml 0.1.0<a class="anchor" aria-label="anchor" href="#zutoml-010"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.1.0" id="zutoml-010">zutoml 0.1.0<a class="anchor" aria-label="anchor" href="#zutoml-010"></a></h2><p class="text-muted">CRAN release: 2026-11-07</p>
 <ul><li><p>Initial CRAN submission.</p></li>
 <li><p><code><a href="../reference/toml_read.html">toml_read()</a></code> reads a TOML document from a file, URL or connection, reading at most <code>max_size + 1</code> bytes, so an endless source fails at the limit. A URL or file that cannot be opened is a <code>zutoml_io_error</code> naming the cause (<code>HTTP status was '404 Not Found'</code>), with no stray warning.</p></li>
 <li><p><code><a href="../reference/toml_parse.html">toml_parse()</a></code> reads a TOML document into ordinary R values: tables as named lists in document order, arrays as vectors where their elements share a type, date-times as <code>POSIXct</code> and <code>Date</code>, and integers beyond 2^53 as <code><a href="../reference/toml_bigint.html">toml_bigint()</a></code>. <code>data_frame = TRUE</code> turns arrays of tables into data frames.</p></li>

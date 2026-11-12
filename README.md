@@ -3,7 +3,7 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/pedrobtz/zutoml/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pedrobtz/zutoml/actions/workflows/R-CMD-check.yaml)
-[![coverage](https://raw.githubusercontent.com/pedrobtz/zutoml/main/.github/badges/coverage.svg)](https://github.com/pedrobtz/zutoml/actions/workflows/coverage.yaml)
+[![coverage](https://raw.githubusercontent.com/pedrobtz/zutoml/gh-pages/badges/coverage.svg)](https://github.com/pedrobtz/zutoml/actions/workflows/coverage.yaml)
 <!-- badges: end -->
 
 zutoml reads [TOML](https://toml.io) documents into ordinary R values and
